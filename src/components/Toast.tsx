@@ -1,11 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import { Check, AlertCircle, Info, X } from 'lucide-react';
-
-export interface ToastData {
-  id: string;
-  type: 'success' | 'error' | 'info';
-  message: string;
-}
+import type { ToastData } from '@/hooks/useToast';
 
 interface ToastProps {
   readonly toasts: ToastData[];
@@ -35,21 +30,6 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: strin
       </button>
     </div>
   );
-}
-
-export function useToast() {
-  const [toasts, setToasts] = useState<ToastData[]>([]);
-
-  const addToast = useCallback((type: ToastData['type'], message: string) => {
-    const id = Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
-    setToasts(prev => [...prev, { id, type, message }]);
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
-
-  return { toasts, addToast, removeToast };
 }
 
 export default function ToastContainer({ toasts, onRemove }: ToastProps): React.JSX.Element {

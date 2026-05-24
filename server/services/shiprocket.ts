@@ -18,7 +18,7 @@ export interface NormalizedTracking {
   deliveredDate: string;
   estimatedDelivery: string;
   scans: NormalizedTrackingScan[];
-  raw: any;
+  raw: unknown;
 }
 
 export interface ServiceabilityResult {
@@ -26,7 +26,24 @@ export interface ServiceabilityResult {
   courierName: string;
   estimatedDays: string;
   freightCharge: number;
-  raw: any;
+  raw: unknown;
+}
+
+export interface ShiprocketOrderItem {
+  productId?: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export interface ShiprocketShippingAddress {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
 }
 
 export const getShiprocketToken = async (): Promise<string> => {
@@ -73,12 +90,20 @@ const getCustomerName = (name: string): { firstName: string; lastName: string } 
   };
 };
 
+const asRecord = (value: unknown): Record<string, unknown> => {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+};
+
+const asRecordArray = (value: unknown): Array<Record<string, unknown>> => {
+  return Array.isArray(value) ? value.map(asRecord) : [];
+};
+
 export const createShiprocketOrder = async (
   orderId: string,
   total: number,
-  items: any[],
-  shippingAddress: any
-): Promise<any> => {
+  items: ShiprocketOrderItem[],
+  shippingAddress: ShiprocketShippingAddress
+): Promise<Record<string, unknown>> => {
   const token = await getShiprocketToken();
   const { firstName, lastName } = getCustomerName(shippingAddress.name);
 
@@ -132,10 +157,12 @@ export const createShiprocketOrder = async (
   return await response.json();
 };
 
-export const normalizeShiprocketTracking = (data: any): NormalizedTracking => {
-  const trackingData = data?.tracking_data || data;
-  const track = trackingData?.shipment_track?.[0] || trackingData?.shipment_track || {};
-  const scans = track?.scans || trackingData?.shipment_track_activities || [];
+export const normalizeShiprocketTracking = (data: unknown): NormalizedTracking => {
+  const root = asRecord(data);
+  const trackingData = asRecord(root.tracking_data || data);
+  const shipmentTrack = trackingData.shipment_track;
+  const track = Array.isArray(shipmentTrack) ? asRecord(shipmentTrack[0]) : asRecord(shipmentTrack);
+  const scans = asRecordArray(track.scans || trackingData.shipment_track_activities);
 
   return {
     awbCode: String(track?.awb_code || trackingData?.awb_code || ''),
@@ -143,7 +170,7 @@ export const normalizeShiprocketTracking = (data: any): NormalizedTracking => {
     currentStatus: String(track?.current_status || trackingData?.shipment_status || trackingData?.status || 'Processing'),
     deliveredDate: String(track?.delivered_date || ''),
     estimatedDelivery: String(track?.edd || trackingData?.edd || ''),
-    scans: scans.map((scan: any) => ({
+    scans: scans.map((scan) => ({
       date: String(scan.date || scan.scan_date_time || ''),
       location: String(scan.location || scan.scan_location || ''),
       activity: String(scan.activity || scan.status || scan.scan || 'Shipment update'),
@@ -152,7 +179,7 @@ export const normalizeShiprocketTracking = (data: any): NormalizedTracking => {
   };
 };
 
-const fetchTracking = async (endpoint: string): Promise<any> => {
+const fetchTracking = async (endpoint: string): Promise<unknown> => {
   const token = await getShiprocketToken();
   const response = await fetch(`${baseUrl}${endpoint}`, {
     method: 'GET',
@@ -194,7 +221,9 @@ export const checkServiceability = async (deliveryPincode: string): Promise<Serv
   }
 
   const data = await response.json();
-  const couriers = data?.data?.available_courier_companies || [];
+  const root = asRecord(data);
+  const serviceData = asRecord(root.data);
+  const couriers = asRecordArray(serviceData.available_courier_companies);
   const preferredCourier = couriers[0] || {};
 
   return {

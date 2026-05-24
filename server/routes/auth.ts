@@ -49,7 +49,7 @@ router.post('/verify-signup', async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const cached = await getCachedSession(`signup_otp:${email}`);
+    const cached = await getCachedSession<{ otp: string; phone: string; password: string }>(`signup_otp:${email}`);
     if (!cached) {
       res.status(400).json({ error: 'Verification code expired or invalid' });
       return;
@@ -121,7 +121,7 @@ router.post('/verify-login', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const cached = await getCachedSession(`login_otp:${email}`);
+    const cached = await getCachedSession<{ otp: string }>(`login_otp:${email}`);
     if (!cached) {
       res.status(400).json({ error: 'Verification code expired or invalid' });
       return;
@@ -167,7 +167,7 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
     }
 
     res.json(session);
-  } catch (error) {
+  } catch {
     res.status(401).json({ error: 'Invalid token' });
   }
 });

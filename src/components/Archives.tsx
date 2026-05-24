@@ -23,7 +23,16 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedSize, setSelectedSize] = useState<string>('All');
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const storedCart = localStorage.getItem('hola_cart');
+    if (!storedCart) return [];
+    try {
+      return JSON.parse(storedCart) as CartItem[];
+    } catch (err) {
+      console.error(err);
+      return [];
+    }
+  });
   const [cartOpen, setCartOpen] = useState<boolean>(false);
   const [checkoutOpen, setCheckoutOpen] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
@@ -45,16 +54,21 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
     }
   }, []);
 
-  useEffect(() => {
-    fetchProducts(true);
+  const saveCart = useCallback((newCart: CartItem[]): void => {
+    setCart(newCart);
+    localStorage.setItem('hola_cart', JSON.stringify(newCart));
+  }, []);
 
-    const storedCart = localStorage.getItem('hola_cart');
-    if (storedCart) {
-      try { setCart(JSON.parse(storedCart)); } catch (e) { console.error(e); }
-    }
+  useEffect(() => {
+    const loadTimer = window.setTimeout(() => {
+      fetchProducts(true);
+    }, 0);
 
     pollRef.current = setInterval(() => fetchProducts(false), 30000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      window.clearTimeout(loadTimer);
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [fetchProducts]);
 
   const fetchWishlist = useCallback(async (): Promise<void> => {
@@ -77,7 +91,10 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
   }, [user]);
 
   useEffect(() => {
-    fetchWishlist();
+    const timer = window.setTimeout(() => {
+      fetchWishlist();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [fetchWishlist]);
 
   useEffect(() => {
@@ -91,16 +108,14 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
           const p = products.find(pr => pr._id === item.product._id);
           return !p || p.status !== 'sold';
         });
-        saveCart(updated);
-        onToast?.('info', `${soldInCart.length} item(s) sold out — removed from bag`);
+        const timer = window.setTimeout(() => {
+          saveCart(updated);
+          onToast?.('info', `${soldInCart.length} item(s) sold out — removed from bag`);
+        }, 0);
+        return () => window.clearTimeout(timer);
       }
     }
-  }, [products]);
-
-  const saveCart = (newCart: CartItem[]): void => {
-    setCart(newCart);
-    localStorage.setItem('hola_cart', JSON.stringify(newCart));
-  };
+  }, [cart, onToast, products, saveCart]);
 
   const handleAddToCart = (product: ProductItem): void => {
     if (product.status === 'sold') {

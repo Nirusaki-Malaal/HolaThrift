@@ -1,5 +1,16 @@
 export type CashfreeMode = 'sandbox' | 'production';
 
+export interface CashfreeOrderResponse {
+  payment_session_id?: string;
+  order_expiry_time?: string;
+  [key: string]: unknown;
+}
+
+export interface CashfreeOrderStatus {
+  order_status?: string;
+  [key: string]: unknown;
+}
+
 const appId = process.env.CASHFREE_APP_ID || '';
 const secretKey = process.env.CASHFREE_SECRET_KEY || '';
 const apiVersion = process.env.CASHFREE_API_VERSION || '2023-08-01';
@@ -37,7 +48,7 @@ export const createCashfreeOrder = async (
   email: string,
   phone: string,
   name: string
-): Promise<any> => {
+): Promise<CashfreeOrderResponse> => {
   const response = await fetch(`${baseUrl}/orders`, {
     method: 'POST',
     headers: getHeaders(),
@@ -68,7 +79,7 @@ export const createCashfreeOrder = async (
   return await response.json();
 };
 
-export const verifyCashfreePayment = async (orderId: string): Promise<any> => {
+export const verifyCashfreePayment = async (orderId: string): Promise<CashfreeOrderStatus> => {
   const response = await fetch(`${baseUrl}/orders/${orderId}`, {
     method: 'GET',
     headers: getHeaders(),

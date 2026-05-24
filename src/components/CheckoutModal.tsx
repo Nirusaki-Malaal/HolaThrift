@@ -5,14 +5,23 @@ import type { SavedAddress, UserSession } from '@/types/user';
 
 declare global {
   interface Window {
-    Cashfree: any;
+    Cashfree?: (options: { mode: 'sandbox' | 'production' }) => {
+      checkout: (options: { paymentSessionId: string; redirectTarget: '_modal' }) => Promise<{ error?: { message?: string } } | undefined>;
+    };
   }
+}
+
+interface CheckoutItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
 }
 
 interface CheckoutModalProps {
   readonly isOpen: boolean;
   readonly total: number;
-  readonly items: any[];
+  readonly items: CheckoutItem[];
   readonly onClose: () => void;
   readonly onPaymentSuccess: () => void;
   readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
@@ -50,19 +59,21 @@ export default function CheckoutModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    setName(user?.name || '');
-    setPhone(user?.phone || '');
-    setEmail(user?.email || '');
-    setAddress('');
-    setCity('');
-    setStateName('');
-    setPincode('');
-    setSaveAddress(true);
-    setStep('address');
-    setError('');
-    setOrderReference('');
-    setReservationExpiresAt('');
-    setDeliveryCheck(null);
+    const resetTimer = window.setTimeout(() => {
+      setName(user?.name || '');
+      setPhone(user?.phone || '');
+      setEmail(user?.email || '');
+      setAddress('');
+      setCity('');
+      setStateName('');
+      setPincode('');
+      setSaveAddress(true);
+      setStep('address');
+      setError('');
+      setOrderReference('');
+      setReservationExpiresAt('');
+      setDeliveryCheck(null);
+    }, 0);
 
     const loadSavedAddress = async (): Promise<void> => {
       const token = getCookie('auth_token');
@@ -87,13 +98,22 @@ export default function CheckoutModal({
       }
     };
 
-    loadSavedAddress();
+    const addressTimer = window.setTimeout(() => {
+      loadSavedAddress();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(resetTimer);
+      window.clearTimeout(addressTimer);
+    };
   }, [isOpen, user]);
 
   useEffect(() => {
     if (!isOpen || pincode.length !== 6) {
-      setDeliveryCheck(null);
-      return;
+      const timer = window.setTimeout(() => {
+        setDeliveryCheck(null);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
 
     let cancelled = false;
@@ -218,6 +238,7 @@ export default function CheckoutModal({
       setProgress(50);
       await loadCashfreeScript();
 
+      if (!window.Cashfree) throw new Error('Cashfree SDK is not available');
       const cashfree = window.Cashfree({ mode });
 
       setStage('Completing checkout session...');
@@ -261,9 +282,9 @@ export default function CheckoutModal({
       setStep('success');
       onToast?.('success', 'Order placed successfully!');
       onPaymentSuccess();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message || 'Payment initiation failed');
+      setError(err instanceof Error ? err.message : 'Payment initiation failed');
       setStep('address');
     }
   };

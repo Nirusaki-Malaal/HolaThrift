@@ -14,8 +14,54 @@ interface ProfileProps {
   readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
 }
 
+interface OrderItem {
+  name: string;
+  quantity: number;
+}
+
+interface OrderRecord {
+  _id: string;
+  transactionId: string;
+  createdAt: string;
+  items: OrderItem[];
+  total: number;
+  paymentProvider?: string;
+  paymentStatus?: string;
+  cashfreeOrderStatus?: string;
+  shippingStatus?: string;
+  lastTrackingStatus?: string;
+  shiprocketShipmentId?: string;
+  awbCode?: string;
+  courierName?: string;
+  estimatedDelivery?: string;
+}
+
+interface TrackingScan {
+  date: string;
+  location: string;
+  activity: string;
+}
+
+interface TrackingPayload {
+  awbCode?: string;
+  currentStatus?: string;
+  courierName?: string;
+  estimatedDelivery?: string;
+  scans?: TrackingScan[];
+}
+
+interface TrackingResponse {
+  tracking?: TrackingPayload;
+}
+
+const getTrackingPayload = (details: TrackingResponse | TrackingPayload | null): TrackingPayload | null => {
+  if (!details) return null;
+  const response = details as TrackingResponse;
+  return response.tracking || details as TrackingPayload;
+};
+
 export default function Profile({ user, onLogout, onUserUpdate, onToast }: ProfileProps): React.JSX.Element {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [wishlist, setWishlist] = useState<ProductItem[]>([]);
   const [wishlistLoading, setWishlistLoading] = useState<boolean>(true);
@@ -23,7 +69,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
   const [activeTab, setActiveTab] = useState<'account' | 'orders' | 'saved'>('account');
 
   const [activeTrackingId, setActiveTrackingId] = useState<string | null>(null);
-  const [trackingDetails, setTrackingDetails] = useState<any | null>(null);
+  const [trackingDetails, setTrackingDetails] = useState<TrackingResponse | TrackingPayload | null>(null);
   const [loadingTrack, setLoadingTrack] = useState<boolean>(false);
 
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -428,8 +474,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
           ) : (
             <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
               {orders.map((order) => {
-                const hasShipping = !!order.shiprocketShipmentId;
-                const isTracking = activeTrackingId === order.shiprocketShipmentId;
+                const trackingId = order.shiprocketShipmentId || order.awbCode || '';
+                const hasShipping = Boolean(trackingId);
+                const isTracking = activeTrackingId === trackingId;
                 return (
                   <div key={order._id} className="bg-[#050505] border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all space-y-4">
                     <div className="flex justify-between items-start">
@@ -438,7 +485,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                           {order.transactionId} · {new Date(order.createdAt).toLocaleDateString()}
                         </span>
                         <div className="text-white font-bold text-xs uppercase truncate max-w-xs md:max-w-md">
-                          {order.items.map((it: any) => `${it.name} (x${it.quantity})`).join(', ')}
+                          {order.items.map((it) => `${it.name} (x${it.quantity})`).join(', ')}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2 font-mono text-[8px] font-bold uppercase tracking-widest">
                           <span className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-400">
@@ -466,7 +513,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                             )}
                           </div>
                           <button
-                            onClick={() => handleTrackOrder(order.shiprocketShipmentId)}
+                            onClick={() => handleTrackOrder(trackingId)}
                             className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/25 border border-purple-500/20 text-purple-400 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
                           >
                             {isTracking ? 'Hide Tracking' : 'Track Order'}
@@ -481,8 +528,8 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                                 <span>Querying courier server...</span>
                               </div>
                             ) : (() => {
-                              const track = trackingDetails?.tracking || trackingDetails;
-                              const scans = track?.scans || [];
+                              const track = getTrackingPayload(trackingDetails);
+                              const scans: TrackingScan[] = track?.scans || [];
                               return (
                                 <div className="space-y-4">
                                   <div className="flex justify-between items-center pb-2 border-b border-white/5 font-mono text-[9px] uppercase tracking-widest">
@@ -497,7 +544,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                                   )}
                                   {scans.length > 0 ? (
                                     <div className="relative pl-4 border-l border-white/10 space-y-4 my-2">
-                                      {scans.map((scan: any, idx: number) => (
+                                      {scans.map((scan, idx) => (
                                         <div key={idx} className="relative">
                                           <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-purple-500 border-2 border-black"></div>
                                           <div className="flex flex-col">

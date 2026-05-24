@@ -10,9 +10,10 @@ import AuthModal from '@/components/AuthModal';
 import Archives from '@/components/Archives';
 import Profile from '@/components/Profile';
 import AdminPanel from '@/components/AdminPanel';
-import ToastContainer, { useToast } from '@/components/Toast';
+import ToastContainer from '@/components/Toast';
 import { LOADING_MESSAGES } from '@/constants/loading';
 import { getCookie, deleteCookie } from '@/utils/cookies';
+import { useToast } from '@/hooks/useToast';
 import type { UserSession } from '@/types/user';
 
 export default function Shop(): React.JSX.Element {

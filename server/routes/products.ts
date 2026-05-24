@@ -8,6 +8,12 @@ import { isAdminRequest } from '../utils/auth';
 
 const router = Router();
 
+interface ProductListItem {
+  _id: unknown;
+  status?: string;
+  [key: string]: unknown;
+}
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'holathrift',
   api_key: process.env.CLOUDINARY_API_KEY || 'LqyAPS1gG-ArjeiTGYkGs4VmYm0',
@@ -16,12 +22,12 @@ cloudinary.config({
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    let products;
-    const cached = await getCachedSession('products:all');
+    let products: ProductListItem[];
+    const cached = await getCachedSession<ProductListItem[]>('products:all');
     if (cached) {
       products = cached;
     } else {
-      products = await Product.find({});
+      products = await Product.find({}).lean() as ProductListItem[];
       if (products.length === 0) {
         const defaultProducts = [
           {
@@ -62,7 +68,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
           }
         ];
         await Product.insertMany(defaultProducts);
-        products = await Product.find({});
+        products = await Product.find({}).lean() as ProductListItem[];
       }
     }
 
@@ -173,8 +179,8 @@ router.post('/upload', async (req: Request, res: Response): Promise<void> => {
         folder: 'holathrift_products',
       });
       res.status(200).json({ url: uploadResponse.secure_url });
-    } catch (cErr) {
-      const matches = image.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+    } catch {
+      const matches = image.match(/^data:image\/([\w.+-]+);base64,(.+)$/);
       if (matches) {
         const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
         const buffer = Buffer.from(matches[2], 'base64');

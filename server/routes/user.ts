@@ -5,7 +5,7 @@ import Product from '../models/Product';
 import { sendOtpEmail } from '../services/mail';
 import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
 import { getBearerToken, getRequestSession, toUserSession } from '../utils/auth';
-import type { UserSession } from '../utils/auth';
+import type { UserLike, UserSession } from '../utils/auth';
 
 const router = Router();
 
@@ -28,14 +28,16 @@ const getSession = async (req: Request, res: Response): Promise<UserSession | nu
   return session;
 };
 
-const updateSessionCache = async (req: Request, user: any): Promise<UserSession> => {
+type AddressInput = Record<string, unknown>;
+
+const updateSessionCache = async (req: Request, user: UserLike): Promise<UserSession> => {
   const session = toUserSession(user);
   const token = getBearerToken(req);
   if (token) await cacheSession(`session:${token}`, session);
   return session;
 };
 
-const normalizeAddress = (body: any): SavedAddress => ({
+const normalizeAddress = (body: AddressInput): SavedAddress => ({
   name: String(body.name || '').trim(),
   phone: String(body.phone || '').trim(),
   email: String(body.email || '').trim().toLowerCase(),
@@ -170,7 +172,7 @@ router.post('/verify-email-change', async (req: Request, res: Response): Promise
       return;
     }
 
-    const cached = await getCachedSession(`email_change:${session.id}`);
+    const cached = await getCachedSession<{ otp: string; newEmail: string }>(`email_change:${session.id}`);
     if (!cached) {
       res.status(400).json({ error: 'Verification code expired. Please try again.' });
       return;

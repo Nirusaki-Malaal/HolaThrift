@@ -20,7 +20,7 @@ export const connectRedis = async (): Promise<void> => {
   }
 };
 
-export const cacheSession = async (key: string, value: any, ttlSeconds: number = 86400): Promise<void> => {
+export const cacheSession = async (key: string, value: unknown, ttlSeconds: number = 86400): Promise<void> => {
   try {
     if (redisClient.isOpen) {
       await redisClient.setEx(key, ttlSeconds, JSON.stringify(value));
@@ -30,11 +30,11 @@ export const cacheSession = async (key: string, value: any, ttlSeconds: number =
   }
 };
 
-export const getCachedSession = async (key: string): Promise<any | null> => {
+export const getCachedSession = async <T = unknown>(key: string): Promise<T | null> => {
   try {
     if (redisClient.isOpen) {
       const data = await redisClient.get(key);
-      return data ? JSON.parse(data) : null;
+      return data ? JSON.parse(data) as T : null;
     }
   } catch (error) {
     console.error(error);

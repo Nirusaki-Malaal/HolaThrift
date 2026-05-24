@@ -64,7 +64,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           }
 
           setStep('verify');
-        } catch (err) {
+        } catch {
           setError('We had trouble connecting to our system. Please try again in a few seconds!');
         } finally {
           setLoading(false);
@@ -92,7 +92,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             handleReset();
             onClose();
           }
-        } catch (err) {
+        } catch {
           setError('We had trouble connecting to our system. Please try again in a few seconds!');
         } finally {
           setLoading(false);
@@ -123,7 +123,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       onSuccess(data.user);
       handleReset();
       onClose();
-    } catch (err) {
+    } catch {
       setError('Connection failed. Let us try that again!');
     } finally {
       setLoading(false);

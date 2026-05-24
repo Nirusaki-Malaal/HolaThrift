@@ -12,6 +12,14 @@ export interface UserSession {
   isAdmin: boolean;
 }
 
+export type UserLike = {
+  _id?: unknown;
+  id?: unknown;
+  email?: unknown;
+  phone?: unknown;
+  name?: unknown;
+};
+
 export const JWT_SECRET = (process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key').replace(/"/g, '');
 
 export const getBearerToken = (req: Request): string | null => {
@@ -20,7 +28,7 @@ export const getBearerToken = (req: Request): string | null => {
   return authHeader.split(' ')[1];
 };
 
-export const toUserSession = (user: any): UserSession => {
+export const toUserSession = (user: UserLike): UserSession => {
   const email = String(user.email || '').trim().toLowerCase();
   const name = String(user.name || '').trim();
 
@@ -33,15 +41,17 @@ export const toUserSession = (user: any): UserSession => {
   };
 };
 
-const normalizeSession = (session: any): UserSession | null => {
-  if (!session?.id || !session?.email) return null;
-  const email = String(session.email).trim().toLowerCase();
-  const name = String(session.name || '').trim();
+const normalizeSession = (session: unknown): UserSession | null => {
+  if (!session || typeof session !== 'object') return null;
+  const value = session as UserLike;
+  if (!value.id || !value.email) return null;
+  const email = String(value.email).trim().toLowerCase();
+  const name = String(value.name || '').trim();
 
   return {
-    id: String(session.id),
+    id: String(value.id),
     email,
-    phone: String(session.phone || ''),
+    phone: String(value.phone || ''),
     ...(name ? { name } : {}),
     isAdmin: isAdminEmail(email),
   };
@@ -51,7 +61,10 @@ export const getSessionFromToken = async (token: string): Promise<UserSession | 
   const rawCachedSession = await getCachedSession(`session:${token}`);
   const cachedSession = normalizeSession(rawCachedSession);
   if (cachedSession) {
-    if (rawCachedSession?.isAdmin !== cachedSession.isAdmin) await cacheSession(`session:${token}`, cachedSession);
+    const rawIsAdmin = rawCachedSession && typeof rawCachedSession === 'object' && 'isAdmin' in rawCachedSession
+      ? (rawCachedSession as { isAdmin?: unknown }).isAdmin
+      : undefined;
+    if (rawIsAdmin !== cachedSession.isAdmin) await cacheSession(`session:${token}`, cachedSession);
     return cachedSession;
   }
 

@@ -38,7 +38,10 @@ export default function AdminPanel(): React.JSX.Element {
   };
 
   useEffect(() => {
-    fetchProducts();
+    const timer = window.setTimeout(() => {
+      fetchProducts();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const updateFormValues = (values: Partial<ProductFormValues>): void => {

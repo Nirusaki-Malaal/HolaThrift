@@ -5,19 +5,43 @@ import { cacheSession, getCachedSession, deleteCachedSession, acquireLock, relea
 import { createCashfreeOrder, getCashfreeMode, verifyCashfreePayment } from '../services/cashfree';
 import { checkServiceability, createShiprocketOrder, trackAwb, trackShipment } from '../services/shiprocket';
 import { getRequestSession } from '../utils/auth';
+import type { UserSession } from '../utils/auth';
 
 const router = Router();
 
 const reservationTtlSeconds = 900;
 
-const getSessionUser = async (req: Request): Promise<any | null> => getRequestSession(req);
+interface IncomingOrderItem {
+  productId: string;
+  name?: string;
+  quantity?: number;
+}
+
+interface VerifiedOrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface ShippingAddress {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+}
+
+const getSessionUser = async (req: Request): Promise<UserSession | null> => getRequestSession(req);
 
 const getReservationExpiry = (): string => {
   return new Date(Date.now() + reservationTtlSeconds * 1000).toISOString();
 };
 
-const getVerifiedItems = async (items: any[]): Promise<{ verifiedItems: any[]; total: number }> => {
-  const verifiedItems = [];
+const getVerifiedItems = async (items: IncomingOrderItem[]): Promise<{ verifiedItems: VerifiedOrderItem[]; total: number }> => {
+  const verifiedItems: VerifiedOrderItem[] = [];
   let total = 0;
 
   for (const item of items) {
@@ -34,6 +58,11 @@ const getVerifiedItems = async (items: any[]): Promise<{ verifiedItems: any[]; t
   }
 
   return { verifiedItems, total };
+};
+
+const getStringField = (value: Record<string, unknown> | null, key: string): string => {
+  const field = value?.[key];
+  return field ? String(field) : '';
 };
 
 router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
@@ -92,7 +121,7 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       await redisClient.setEx(
         `reservation:order:${cashfreeOrderId}`,
         reservationTtlSeconds,
-        JSON.stringify(verifiedItems.map((it: any) => it.productId))
+        JSON.stringify(verifiedItems.map((it) => it.productId))
       );
     }
 
@@ -160,7 +189,7 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
         if (cachedPids) pids.push(...JSON.parse(cachedPids));
       }
       if (pids.length === 0) {
-        pids.push(...verifiedItems.map((it: any) => it.productId));
+        pids.push(...verifiedItems.map((it) => it.productId));
       }
       for (const pid of pids) {
         await Product.findByIdAndUpdate(pid, { status: 'available' });
@@ -193,7 +222,7 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
       await redisClient.del(`reservation:order:${cashfreeOrderId}`);
     }
 
-    let srOrder: any = null;
+    let srOrder: Record<string, unknown> | null = null;
     try {
       srOrder = await createShiprocketOrder(cashfreeOrderId, Number(total), verifiedItems, shippingAddress);
     } catch (shippingError) {
@@ -205,14 +234,14 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
       items: verifiedItems,
       total: Number(total),
       transactionId: cashfreeOrderId,
-      shippingAddress,
+      shippingAddress: shippingAddress as ShippingAddress,
       cashfreeOrderId,
       paymentStatus: 'PAID',
       cashfreeOrderStatus: cfStatus.order_status || 'PAID',
-      shiprocketOrderId: srOrder?.order_id?.toString() || '',
-      shiprocketShipmentId: srOrder?.shipment_id?.toString() || '',
-      awbCode: srOrder?.awb_code || '',
-      courierName: srOrder?.courier_name || '',
+      shiprocketOrderId: getStringField(srOrder, 'order_id'),
+      shiprocketShipmentId: getStringField(srOrder, 'shipment_id'),
+      awbCode: getStringField(srOrder, 'awb_code'),
+      courierName: getStringField(srOrder, 'courier_name'),
       shippingStatus: srOrder ? 'Shipment Created' : 'Pending Shipment Creation',
     });
 
