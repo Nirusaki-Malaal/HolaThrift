@@ -16,19 +16,24 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 
-const startServer = async (): Promise<void> => {
-  try {
-    await mongoose.connect(MONGO_URI);
-    await connectRedis();
-    
-    app.listen(PORT, () => {
-      console.log(`Server listening on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+  
+  mongoose.connect(MONGO_URI)
+    .then(() => {
+      console.log('Connected to MongoDB');
+    })
+    .catch((err) => {
+      console.error('MongoDB connection failed:', err.message);
     });
-  } catch (error) {
-    console.error(error);
-    process.exit(1);
-  }
-};
+    
+  connectRedis()
+    .then(() => {
+      console.log('Connected to Redis');
+    })
+    .catch((err) => {
+      console.error('Redis connection failed:', err.message);
+    });
+});
 
-startServer();
 export default app;
