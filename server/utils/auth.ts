@@ -75,11 +75,15 @@ export const getSessionFromToken = async (token: string): Promise<UserSession | 
   const rawCachedSession = await getCachedSession(`session:${token}`);
   const cachedSession = normalizeSession(rawCachedSession);
   if (cachedSession) {
-    const rawIsAdmin = rawCachedSession && typeof rawCachedSession === 'object' && 'isAdmin' in rawCachedSession
-      ? (rawCachedSession as { isAdmin?: unknown }).isAdmin
-      : undefined;
-    if (rawIsAdmin !== cachedSession.isAdmin) await cacheSession(`session:${token}`, cachedSession, AUTH_SESSION_TTL_SECONDS);
-    return cachedSession;
+    const user = await User.findById(cachedSession.id).select('-password');
+    if (!user) return null;
+    const freshSession = toUserSession(user);
+    const sessionChanged = freshSession.email !== cachedSession.email ||
+      freshSession.phone !== cachedSession.phone ||
+      freshSession.name !== cachedSession.name ||
+      freshSession.isAdmin !== cachedSession.isAdmin;
+    if (sessionChanged) await cacheSession(`session:${token}`, freshSession, AUTH_SESSION_TTL_SECONDS);
+    return freshSession;
   }
 
   try {

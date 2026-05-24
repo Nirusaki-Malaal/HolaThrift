@@ -2,10 +2,12 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 import { User } from '../models/User';
+import Order from '../models/Order';
 import Product from '../models/Product';
 import { sendCustomEmail, sendOtpEmail } from '../services/mail';
 import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
 import { AUTH_SESSION_TTL_SECONDS } from '../config/auth';
+import { isAdminEmail } from '../config/admin';
 import { getBearerToken, getRequestSession, isAdminRequest, toUserSession } from '../utils/auth';
 import type { UserLike, UserSession } from '../utils/auth';
 
@@ -72,6 +74,119 @@ router.get('/admin/email-users', async (req: Request, res: Response): Promise<vo
       .sort({ createdAt: -1 })
       .lean();
     res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/admin/users', async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!await getAdminAccess(req, res)) return;
+    const users = await User.find({})
+      .select('email phone name defaultAddress wishlist createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+    const orderStats = await Order.aggregate([
+      {
+        $group: {
+          _id: '$userEmail',
+          orderCount: { $sum: 1 },
+          totalSpend: { $sum: '$total' },
+          lastOrderAt: { $max: '$createdAt' },
+        },
+      },
+    ]);
+    const statsByEmail = new Map(orderStats.map((stat) => [String(stat._id || '').toLowerCase(), stat]));
+
+    res.json(users.map((user) => {
+      const email = String(user.email || '').toLowerCase();
+      const stats = statsByEmail.get(email);
+      return {
+        _id: user._id,
+        email,
+        phone: user.phone,
+        name: user.name,
+        defaultAddress: user.defaultAddress,
+        wishlistCount: Array.isArray(user.wishlist) ? user.wishlist.length : 0,
+        createdAt: user.createdAt,
+        isAdmin: isAdminEmail(email),
+        orderCount: Number(stats?.orderCount || 0),
+        totalSpend: Number(stats?.totalSpend || 0),
+        lastOrderAt: stats?.lastOrderAt || null,
+      };
+    }));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/admin/users/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!await getAdminAccess(req, res)) return;
+    const name = String(req.body.name || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const phone = String(req.body.phone || '').replace(/\D/g, '').slice(-10);
+
+    if (!email || phone.length !== 10) {
+      res.status(400).json({ error: 'Valid email and 10-digit phone are required' });
+      return;
+    }
+
+    const existingUser = await User.findById(req.params.id);
+    if (!existingUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const emailOwner = await User.findOne({ email, _id: { $ne: req.params.id } });
+    if (emailOwner) {
+      res.status(400).json({ error: 'Email already in use' });
+      return;
+    }
+
+    const phoneOwner = await User.findOne({ phone, _id: { $ne: req.params.id } });
+    if (phoneOwner) {
+      res.status(400).json({ error: 'Phone number already in use' });
+      return;
+    }
+
+    const previousEmail = existingUser.email;
+    existingUser.name = name;
+    existingUser.email = email;
+    existingUser.phone = phone;
+    await existingUser.save();
+    if (previousEmail !== email) {
+      await Order.updateMany({ userEmail: previousEmail }, { userEmail: email });
+      await deleteCachedSession(`orders:${previousEmail}`);
+    }
+    await deleteCachedSession(`orders:${email}`);
+    res.json({ message: 'User updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/admin/users/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const session = await getRequestSession(req);
+    if (!session?.isAdmin) {
+      res.status(403).json({ error: 'Unauthorized admin access required' });
+      return;
+    }
+    if (session.id === req.params.id) {
+      res.status(400).json({ error: 'Admins cannot delete their own active account' });
+      return;
+    }
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    await deleteCachedSession(`orders:${user.email}`);
+    res.json({ message: 'User deleted' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });

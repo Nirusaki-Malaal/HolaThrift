@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Boxes, Mail, ReceiptText } from 'lucide-react';
+import { AlertCircle, Boxes, Mail, ReceiptText, UsersRound } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import AdminHeader from './admin/AdminHeader';
 import AdminEmailPanel from './admin/AdminEmailPanel';
 import AdminInventoryTable from './admin/AdminInventoryTable';
 import AdminOrdersTable from './admin/AdminOrdersTable';
+import AdminUsersPanel from './admin/AdminUsersPanel';
 import ProductFormModal from './admin/ProductFormModal';
 import {
   createEmptyProductForm,
@@ -16,15 +17,19 @@ import { getStockCount } from '@/utils/inventory';
 import type { ProductFormValues, ProductItem } from './admin/types';
 import type { OrderRecord } from '@/types/order';
 import type { AdminEmailPayload, AdminEmailUser } from './admin/AdminEmailPanel';
+import type { AdminUserRecord, AdminUserUpdate } from './admin/AdminUsersPanel';
 
-type AdminView = 'inventory' | 'orders' | 'emails';
+type AdminView = 'inventory' | 'orders' | 'users' | 'emails';
 
 export default function AdminPanel(): React.JSX.Element {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUserRecord[]>([]);
   const [emailUsers, setEmailUsers] = useState<AdminEmailUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [adminUsersLoading, setAdminUsersLoading] = useState<boolean>(true);
+  const [userSavingId, setUserSavingId] = useState<string>('');
   const [emailUsersLoading, setEmailUsersLoading] = useState<boolean>(true);
   const [emailSending, setEmailSending] = useState<boolean>(false);
   const [emailResult, setEmailResult] = useState<string>('');
@@ -102,11 +107,35 @@ export default function AdminPanel(): React.JSX.Element {
     }
   };
 
+  const fetchAdminUsers = async (): Promise<void> => {
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Admin session expired. Please sign in again.');
+      setAdminUsersLoading(false);
+      return;
+    }
+
+    setAdminUsersLoading(true);
+    try {
+      const response = await fetch('/api/user/admin/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load users');
+      setAdminUsers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Admin users could not be loaded');
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       fetchProducts();
       fetchOrders();
       fetchEmailUsers();
+      fetchAdminUsers();
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -338,6 +367,62 @@ export default function AdminPanel(): React.JSX.Element {
     }
   };
 
+  const handleUserUpdate = async (id: string, values: AdminUserUpdate): Promise<void> => {
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Admin session expired. Please sign in again.');
+      return;
+    }
+
+    setError('');
+    setUserSavingId(id);
+    try {
+      const response = await fetch(`/api/user/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(values),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update user');
+      await fetchAdminUsers();
+      await fetchEmailUsers();
+      await fetchOrders();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'User update failed');
+    } finally {
+      setUserSavingId('');
+    }
+  };
+
+  const handleUserDelete = async (id: string): Promise<void> => {
+    if (!window.confirm('Delete this user account? Orders will stay visible for admin records.')) return;
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Admin session expired. Please sign in again.');
+      return;
+    }
+
+    setError('');
+    setUserSavingId(id);
+    try {
+      const response = await fetch(`/api/user/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to delete user');
+      await fetchAdminUsers();
+      await fetchEmailUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'User delete failed');
+    } finally {
+      setUserSavingId('');
+    }
+  };
+
   return (
     <div className="relative z-10 flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 pt-28 sm:pt-32 pb-20 text-left animate-fade-in">
       <AdminHeader onAddProduct={openCreateModal} />
@@ -372,6 +457,16 @@ export default function AdminPanel(): React.JSX.Element {
         >
           <Mail size={14} />
           <span>Emails</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView('users')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeView === 'users' ? 'bg-white text-black' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <UsersRound size={14} />
+          <span>Users</span>
         </button>
       </div>
 
@@ -440,6 +535,16 @@ export default function AdminPanel(): React.JSX.Element {
           values={emailValues}
           onChange={updateEmailValues}
           onSubmit={handleEmailSubmit}
+        />
+      )}
+
+      {activeView === 'users' && (
+        <AdminUsersPanel
+          users={adminUsers}
+          loading={adminUsersLoading}
+          savingId={userSavingId}
+          onUpdate={handleUserUpdate}
+          onDelete={handleUserDelete}
         />
       )}
 
