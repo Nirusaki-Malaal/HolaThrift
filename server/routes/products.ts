@@ -28,48 +28,6 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       products = cached;
     } else {
       products = await Product.find({}).lean() as ProductListItem[];
-      if (products.length === 0) {
-        const defaultProducts = [
-          {
-            name: "Vintage Canvas Work Jacket",
-            category: "Outerwear",
-            price: 3499,
-            size: "L",
-            condition: "9/10 Excellent Fade",
-            image: "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=500&q=80",
-            description: "Rugged vintage canvas jacket with beautiful natural washing and corduroy collar details.",
-          },
-          {
-            name: "Classic Brown Collar Sweatshirt",
-            category: "Tops",
-            price: 1899,
-            size: "M",
-            condition: "10/10 Mint",
-            image: "https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=500&q=80",
-            description: "Comfortable heavyweight rib collar sweat top in rich chocolate brown earth tones.",
-          },
-          {
-            name: "Emerald Ribbed Johnny Collar",
-            category: "Tops",
-            price: 1599,
-            size: "S",
-            condition: "Deadstock",
-            image: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&q=80",
-            description: "Fine knit ribbed sweater polo with relaxed open johnny collar neck and vintage cuffs.",
-          },
-          {
-            name: "Boxy Striped Rugby Polo",
-            category: "Tops",
-            price: 1299,
-            size: "XL",
-            condition: "8.5/10 Very Good",
-            image: "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=500&q=80",
-            description: "Retro wide stripe rugby shirt featuring traditional canvas white collar and relaxed fit.",
-          }
-        ];
-        await Product.insertMany(defaultProducts);
-        products = await Product.find({}).lean() as ProductListItem[];
-      }
     }
 
     let modified = false;
