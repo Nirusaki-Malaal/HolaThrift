@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, User, Menu, X, Sun, Moon } from 'lucide-react';
+import { Archive, CircleUserRound, FileText, Home, LogIn, Menu, Moon, RotateCcw, Shield, Sparkles, Sun, X } from 'lucide-react';
 import type { UserSession } from '@/types/user';
 import type { ThemeMode } from '@/hooks/useTheme';
 
@@ -11,158 +11,181 @@ interface HeaderProps {
   readonly isAdmin: boolean;
   readonly theme: ThemeMode;
   readonly onThemeToggle: () => void;
+  readonly activePage: string;
 }
 
-export default function Header({ setActivePage, onLoginClick, user, isAdmin, theme, onThemeToggle }: HeaderProps): React.JSX.Element {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const nextThemeLabel = theme === 'light' ? 'dark' : 'light';
+interface NavIconButtonProps {
+  readonly label: string;
+  readonly onClick: () => void;
+  readonly children: React.ReactNode;
+  readonly tone?: 'default' | 'admin';
+}
+
+function NavIconButton({ label, onClick, children, tone = 'default' }: NavIconButtonProps): React.JSX.Element {
+  const toneClass = tone === 'admin' ? 'text-purple-400 hover:text-purple-300' : 'text-neutral-300 hover:text-black';
 
   return (
-    <nav className="motion-navbar fixed top-0 left-0 w-full z-50 bg-[#050505]/80 backdrop-blur-md border-b border-white/5 py-4 px-6 md:px-12 flex justify-between items-center transition-all duration-300">
-      <div className="flex items-center space-x-2 cursor-pointer group" onClick={() => setActivePage('home')}>
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`motion-press flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition-all hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.35)] cursor-pointer ${toneClass}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function Header({ setActivePage, onLoginClick, user, isAdmin, theme, onThemeToggle, activePage }: HeaderProps): React.JSX.Element {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const isHome = activePage === 'home';
+  const nextThemeLabel = theme === 'light' ? 'dark' : 'light';
+
+  const goToPage = (page: string): void => {
+    setActivePage(page);
+    setIsMobileMenuOpen(false);
+  };
+
+  const navClass = isHome
+    ? 'motion-navbar fixed top-3 left-3 right-3 z-50 flex items-center justify-between rounded-2xl border border-white/10 bg-[#050505]/75 px-4 py-3 shadow-[0_18px_55px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all duration-300 md:left-8 md:right-8 md:px-6'
+    : 'motion-navbar fixed top-0 left-0 z-50 flex w-full items-center justify-between border-b border-white/5 bg-[#050505]/80 px-6 py-4 backdrop-blur-md transition-all duration-300 md:px-12';
+
+  const brandTextClass = isHome ? 'text-lg md:text-xl' : 'text-xl md:text-2xl';
+
+  return (
+    <nav className={navClass}>
+      <div className="flex items-center space-x-2 cursor-pointer group" onClick={() => goToPage('home')}>
         <div className="bg-white text-black p-1.5 rounded-lg group-hover:rotate-12 transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.5)]">
           <Sparkles size={18} className="fill-current" />
         </div>
-        <span className="text-xl md:text-2xl font-black tracking-tighter text-white uppercase italic">
+        <span className={`${brandTextClass} font-black tracking-tighter text-white uppercase italic`}>
           HOLA<span className="text-purple-500">THRIFT</span>
         </span>
       </div>
 
-      <div className="hidden md:flex items-center space-x-6">
-        <button
-          type="button"
-          onClick={onThemeToggle}
-          aria-label={`Switch to ${nextThemeLabel} mode`}
-          className="motion-press flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-neutral-300 transition-all hover:bg-white hover:text-black hover:shadow-[0_0_20px_rgba(255,255,255,0.35)] cursor-pointer"
-        >
+      <div className={`hidden items-center md:flex ${isHome ? 'gap-3' : 'gap-5'}`}>
+        {isHome && (
+          <button
+            type="button"
+            onClick={() => goToPage('archives')}
+            className="motion-lift motion-press flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-neutral-300 transition-all hover:bg-white hover:text-black hover:shadow-[0_0_20px_rgba(255,255,255,0.35)] cursor-pointer"
+          >
+            <Archive size={14} />
+            <span>Archives</span>
+          </button>
+        )}
+
+        <NavIconButton label={`Switch to ${nextThemeLabel} mode`} onClick={onThemeToggle}>
           {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
-        </button>
+        </NavIconButton>
 
         {user ? (
           <>
-            <button
-              onClick={() => setActivePage('archives')}
-              className="motion-lift text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
-            >
-              ARCHIVES
-            </button>
-            <button
-              onClick={() => setActivePage('profile')}
-              className="motion-lift text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
-            >
-              MY ACCOUNT
-            </button>
+            <NavIconButton label="My account" onClick={() => goToPage('profile')}>
+              <CircleUserRound size={16} />
+            </NavIconButton>
             {isAdmin && (
-              <button
-                onClick={() => setActivePage('admin')}
-                className="motion-lift text-purple-400 hover:text-purple-300 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
-              >
-                ADMIN PANEL
-              </button>
+              <NavIconButton label="Admin panel" onClick={() => goToPage('admin')} tone="admin">
+                <Shield size={16} />
+              </NavIconButton>
             )}
           </>
         ) : (
           <button
+            type="button"
             onClick={onLoginClick}
-            className="motion-lift motion-press flex items-center space-x-2 bg-white/5 border border-white/10 px-5 py-2.5 rounded-xl text-xs font-black tracking-widest text-neutral-300 hover:text-black hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-300 cursor-pointer"
+            className="motion-lift motion-press flex items-center space-x-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-xs font-black tracking-widest text-neutral-300 transition-all duration-300 hover:bg-white hover:text-black hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] cursor-pointer"
           >
-            <User size={14} />
+            <LogIn size={14} />
             <span>LOGIN</span>
           </button>
         )}
       </div>
 
-      <div className="flex md:hidden items-center gap-2">
+      <div className="flex items-center gap-2 md:hidden">
+        <NavIconButton label={`Switch to ${nextThemeLabel} mode`} onClick={onThemeToggle}>
+          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+        </NavIconButton>
         <button
           type="button"
-          onClick={onThemeToggle}
-          aria-label={`Switch to ${nextThemeLabel} mode`}
-          className="motion-press flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-neutral-300 transition-all hover:text-white cursor-pointer"
-        >
-          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-        </button>
-        <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          className="motion-press flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-neutral-400 transition-colors hover:text-white cursor-pointer"
         >
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
       {isMobileMenuOpen && (
-        <div className="absolute top-full left-0 w-full bg-[#050505]/95 backdrop-blur-lg border-b border-white/5 flex flex-col p-6 space-y-4 md:hidden animate-slide-up shadow-2xl">
-          <button
-            className="text-neutral-400 hover:text-white font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
-            onClick={() => {
-              setActivePage('home');
-              setIsMobileMenuOpen(false);
-            }}
-          >
-            Archive
-          </button>
-          <button
-            className="text-neutral-400 hover:text-white font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
-            onClick={() => {
-              setActivePage('return');
-              setIsMobileMenuOpen(false);
-            }}
-          >
-            Return Policy
-          </button>
-          <button
-            className="text-neutral-400 hover:text-white font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
-            onClick={() => {
-              setActivePage('tnc');
-              setIsMobileMenuOpen(false);
-            }}
-          >
-            Terms & Conditions
-          </button>
-          
-          {user ? (
-            <>
+        <div className="absolute top-[calc(100%+0.75rem)] left-0 w-full rounded-2xl border border-white/10 bg-[#050505]/95 p-4 shadow-2xl backdrop-blur-xl md:hidden animate-slide-up">
+          <div className="flex flex-col gap-2">
+            {isHome ? (
               <button
-                className="text-neutral-400 hover:text-white font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
-                onClick={() => {
-                  setActivePage('archives');
-                  setIsMobileMenuOpen(false);
-                }}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-neutral-300 transition-all hover:bg-white/5 hover:text-white cursor-pointer"
+                onClick={() => goToPage('archives')}
               >
-                Archives
+                <Archive size={15} />
+                <span>Archives</span>
               </button>
+            ) : (
               <button
-                className="text-neutral-400 hover:text-white font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
-                onClick={() => {
-                  setActivePage('profile');
-                  setIsMobileMenuOpen(false);
-                }}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-neutral-300 transition-all hover:bg-white/5 hover:text-white cursor-pointer"
+                onClick={() => goToPage('home')}
               >
-                My Account
+                <Home size={15} />
+                <span>Home</span>
               </button>
-              {isAdmin && (
-                <button
-                  className="text-purple-400 hover:text-purple-300 font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
-                  onClick={() => {
-                    setActivePage('admin');
-                    setIsMobileMenuOpen(false);
-                  }}
-                >
-                  Admin Panel
-                </button>
-              )}
-            </>
-          ) : (
+            )}
+
             <button
-              className="flex items-center justify-center space-x-2 bg-white text-black py-3.5 rounded-xl font-black text-xs tracking-widest uppercase shadow-[0_0_20px_rgba(255,255,255,0.25)] active:scale-95 transition-all cursor-pointer"
-              onClick={() => {
-                onLoginClick();
-                setIsMobileMenuOpen(false);
-              }}
+              className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-neutral-300 transition-all hover:bg-white/5 hover:text-white cursor-pointer"
+              onClick={() => goToPage('return')}
             >
-              <User size={14} />
-              <span>LOGIN</span>
+              <RotateCcw size={15} />
+              <span>Return Policy</span>
             </button>
-          )}
+
+            <button
+              className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-neutral-300 transition-all hover:bg-white/5 hover:text-white cursor-pointer"
+              onClick={() => goToPage('tnc')}
+            >
+              <FileText size={15} />
+              <span>Terms & Conditions</span>
+            </button>
+
+            {user ? (
+              <>
+                <button
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-neutral-300 transition-all hover:bg-white/5 hover:text-white cursor-pointer"
+                  onClick={() => goToPage('profile')}
+                >
+                  <CircleUserRound size={15} />
+                  <span>Account</span>
+                </button>
+                {isAdmin && (
+                  <button
+                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-purple-400 transition-all hover:bg-purple-500/10 hover:text-purple-300 cursor-pointer"
+                    onClick={() => goToPage('admin')}
+                  >
+                    <Shield size={15} />
+                    <span>Admin</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                className="motion-press mt-2 flex items-center justify-center gap-2 rounded-xl bg-white py-3.5 text-xs font-black uppercase tracking-widest text-black shadow-[0_0_20px_rgba(255,255,255,0.25)] transition-all cursor-pointer"
+                onClick={() => {
+                  onLoginClick();
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                <LogIn size={14} />
+                <span>LOGIN</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
     </nav>

@@ -68,6 +68,10 @@ export default function Shop(): React.JSX.Element {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
+  const handleExploreArchives = (): void => {
+    handlePageChange('archives');
+  };
+
   const handleLoginSuccess = (user: UserSession): void => {
     setCurrentUser(user);
     addToast('success', 'Welcome back!');
@@ -98,11 +102,12 @@ export default function Shop(): React.JSX.Element {
         isAdmin={Boolean(currentUser?.isAdmin)}
         theme={theme}
         onThemeToggle={toggleTheme}
+        activePage={activePage}
       />
       
       {activePage === 'home' && (
         <>
-          <Hero />
+          <Hero onExploreArchives={handleExploreArchives} />
           <Marquee />
         </>
       )}

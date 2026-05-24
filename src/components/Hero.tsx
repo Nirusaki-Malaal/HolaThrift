@@ -2,7 +2,11 @@ import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import HeroScene from './HeroScene';
 
-export default function Hero(): React.JSX.Element {
+interface HeroProps {
+  readonly onExploreArchives: () => void;
+}
+
+export default function Hero({ onExploreArchives }: HeroProps): React.JSX.Element {
   return (
     <section className="relative z-10 flex min-h-screen w-full items-center justify-center overflow-hidden px-4 text-center transform-gpu">
       <HeroScene />
@@ -30,7 +34,7 @@ export default function Hero(): React.JSX.Element {
           Once it's gone, it's gone forever.
         </p>
 
-        <button className="motion-hero-copy motion-shimmer motion-press relative group mt-10 md:mt-12 inline-flex items-center justify-center overflow-hidden rounded-full bg-white px-8 py-4 text-sm font-black uppercase tracking-wider text-black shadow-[0_0_40px_rgba(255,255,255,0.3)] transition-all duration-300 hover:bg-neutral-100 hover:shadow-[0_0_60px_rgba(255,255,255,0.7)] transform-gpu cursor-pointer" style={{ animationDelay: '360ms' }}>
+        <button onClick={onExploreArchives} className="motion-hero-copy motion-shimmer motion-press relative group mt-10 md:mt-12 inline-flex items-center justify-center overflow-hidden rounded-full bg-white px-8 py-4 text-sm font-black uppercase tracking-wider text-black shadow-[0_0_40px_rgba(255,255,255,0.3)] transition-all duration-300 hover:bg-neutral-100 hover:shadow-[0_0_60px_rgba(255,255,255,0.7)] transform-gpu cursor-pointer" style={{ animationDelay: '360ms' }}>
           <span className="relative z-10 flex items-center gap-2">
             Explore The Archive <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
           </span>
