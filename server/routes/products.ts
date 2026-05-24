@@ -15,9 +15,9 @@ interface ProductListItem {
 }
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'holathrift',
-  api_key: process.env.CLOUDINARY_API_KEY || 'LqyAPS1gG-ArjeiTGYkGs4VmYm0',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'mock-secret',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {

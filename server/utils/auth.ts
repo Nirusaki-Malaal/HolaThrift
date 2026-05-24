@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import { cacheSession, getCachedSession } from '../services/redis';
 import { isAdminEmail } from '../config/admin';
+import { getRequiredEnv } from '../config/env';
 
 export interface UserSession {
   id: string;
@@ -20,7 +21,7 @@ export type UserLike = {
   name?: unknown;
 };
 
-export const JWT_SECRET = (process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key').replace(/"/g, '');
+export const JWT_SECRET = getRequiredEnv('JWT_SECRET');
 
 export const getBearerToken = (req: Request): string | null => {
   const authHeader = req.headers.authorization;
