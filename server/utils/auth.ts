@@ -1,9 +1,10 @@
 import { Request } from 'express';
+import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import { cacheSession, getCachedSession } from '../services/redis';
 import { isAdminEmail } from '../config/admin';
-import { getRequiredEnv } from '../config/env';
+import { getEnv } from '../config/env';
 
 export interface UserSession {
   id: string;
@@ -21,7 +22,14 @@ export type UserLike = {
   name?: unknown;
 };
 
-export const JWT_SECRET = getRequiredEnv('JWT_SECRET');
+const createJwtSecret = (): string => {
+  const configuredSecret = getEnv('JWT_SECRET');
+  if (configuredSecret) return configuredSecret;
+  if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET is required');
+  return randomBytes(32).toString('hex');
+};
+
+export const JWT_SECRET = createJwtSecret();
 
 export const getBearerToken = (req: Request): string | null => {
   const authHeader = req.headers.authorization;
