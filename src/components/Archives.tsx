@@ -229,15 +229,15 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
         </button>
       </div>
 
-      <div className="motion-panel sticky top-[4.75rem] z-30 -mx-3 mb-5 flex flex-col gap-3 border-y border-white/5 bg-[#050505]/95 px-3 py-3 shadow-[0_16px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:-mx-6 sm:px-6 md:static md:top-auto md:z-auto md:mx-0 md:mb-8 md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0 lg:flex-row lg:items-center lg:gap-4">
-        <div className="relative flex-grow">
+      <div className="motion-panel mb-5 grid grid-cols-2 gap-3 rounded-lg border border-white/5 bg-[#0b0b0b]/75 p-3 shadow-[0_16px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl md:mb-8 md:grid-cols-4 md:p-4 lg:grid-cols-[minmax(18rem,1fr)_repeat(4,minmax(8rem,10rem))] lg:items-center">
+        <div className="relative col-span-2 md:col-span-4 lg:col-span-1">
           <Search className="absolute left-4 top-3.5 text-neutral-500 md:top-4" size={16} />
           <input
             type="text"
             placeholder="Search the archives..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-11 w-full rounded-lg border border-white/5 bg-[#111]/70 px-11 text-xs text-white outline-none transition-colors focus:border-purple-500 md:h-auto md:px-12 md:py-4"
+            className="h-11 w-full rounded-lg border border-white/5 bg-[#050505] px-11 text-xs text-white outline-none transition-colors focus:border-purple-500 md:h-12 md:px-12"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-4 top-3.5 text-neutral-500 hover:text-white md:top-4">
@@ -246,63 +246,61 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
           )}
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-4 md:gap-3 md:overflow-visible md:pb-0 lg:flex lg:items-center">
-          <label className="relative min-w-[142px] flex-1 md:min-w-0">
-            <span className="sr-only">Category</span>
-            <SlidersHorizontal className="pointer-events-none absolute left-3 top-3 text-neutral-500 md:top-3.5" size={14} />
-            <select
-              value={selectedCategory}
-              onChange={(event) => setSelectedCategory(event.target.value)}
-              className="h-10 w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] pl-9 pr-7 text-[9px] font-black uppercase tracking-[0.14em] text-neutral-300 outline-none transition-colors focus:border-purple-500 md:h-11 md:text-[10px] md:tracking-widest lg:w-44"
-            >
-              <option value={ALL_FILTER_VALUE}>All Categories</option>
-              {filterOptions.categories.map((category) => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </label>
+        <label className="relative min-w-0">
+          <span className="sr-only">Category</span>
+          <SlidersHorizontal className="pointer-events-none absolute left-3 top-3.5 text-neutral-500" size={14} />
+          <select
+            value={selectedCategory}
+            onChange={(event) => setSelectedCategory(event.target.value)}
+            className="h-11 w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] pl-9 pr-7 text-[9px] font-black uppercase tracking-[0.1em] text-neutral-300 outline-none transition-colors focus:border-purple-500 md:h-12 md:text-[10px] md:tracking-widest"
+          >
+            <option value={ALL_FILTER_VALUE}>All Categories</option>
+            {filterOptions.categories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </label>
 
-          <label className="relative min-w-[110px] flex-1 md:min-w-0">
-            <span className="sr-only">Size</span>
-            <select
-              value={selectedSize}
-              onChange={(event) => setSelectedSize(event.target.value)}
-              className="h-10 w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] px-3 text-[9px] font-black uppercase tracking-[0.14em] text-neutral-300 outline-none transition-colors focus:border-purple-500 md:h-11 md:text-[10px] md:tracking-widest lg:w-32"
-            >
-              <option value={ALL_FILTER_VALUE}>All Sizes</option>
-              {filterOptions.sizes.map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </label>
+        <label className="relative min-w-0">
+          <span className="sr-only">Size</span>
+          <select
+            value={selectedSize}
+            onChange={(event) => setSelectedSize(event.target.value)}
+            className="h-11 w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] px-3 text-[9px] font-black uppercase tracking-[0.1em] text-neutral-300 outline-none transition-colors focus:border-purple-500 md:h-12 md:text-[10px] md:tracking-widest"
+          >
+            <option value={ALL_FILTER_VALUE}>All Sizes</option>
+            {filterOptions.sizes.map((size) => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </label>
 
-          <label className="relative min-w-[132px] flex-1 md:min-w-0">
-            <span className="sr-only">Availability</span>
-            <select
-              value={selectedAvailability}
-              onChange={(event) => setSelectedAvailability(event.target.value as AvailabilityFilter)}
-              className="h-10 w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] px-3 text-[9px] font-black uppercase tracking-[0.14em] text-neutral-300 outline-none transition-colors focus:border-purple-500 md:h-11 md:text-[10px] md:tracking-widest lg:w-40"
-            >
-              <option value="all">Availability</option>
-              <option value="in-stock">In Stock</option>
-              <option value="out-of-stock">Out Of Stock</option>
-            </select>
-          </label>
+        <label className="relative min-w-0">
+          <span className="sr-only">Availability</span>
+          <select
+            value={selectedAvailability}
+            onChange={(event) => setSelectedAvailability(event.target.value as AvailabilityFilter)}
+            className="h-11 w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] px-3 text-[9px] font-black uppercase tracking-[0.1em] text-neutral-300 outline-none transition-colors focus:border-purple-500 md:h-12 md:text-[10px] md:tracking-widest"
+          >
+            <option value="all">Availability</option>
+            <option value="in-stock">In Stock</option>
+            <option value="out-of-stock">Out Of Stock</option>
+          </select>
+        </label>
 
-          <label className="relative min-w-[112px] flex-1 md:min-w-0">
-            <span className="sr-only">Sort</span>
-            <select
-              value={selectedSort}
-              onChange={(event) => setSelectedSort(event.target.value as ProductSort)}
-              className="h-10 w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] px-3 text-[9px] font-black uppercase tracking-[0.14em] text-neutral-300 outline-none transition-colors focus:border-purple-500 md:h-11 md:text-[10px] md:tracking-widest lg:w-40"
-            >
-              <option value="featured">Featured</option>
-              <option value="newest">Newest</option>
-              <option value="price-low">Price Low</option>
-              <option value="price-high">Price High</option>
-            </select>
-          </label>
-        </div>
+        <label className="relative min-w-0">
+          <span className="sr-only">Sort</span>
+          <select
+            value={selectedSort}
+            onChange={(event) => setSelectedSort(event.target.value as ProductSort)}
+            className="h-11 w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] px-3 text-[9px] font-black uppercase tracking-[0.1em] text-neutral-300 outline-none transition-colors focus:border-purple-500 md:h-12 md:text-[10px] md:tracking-widest"
+          >
+            <option value="featured">Featured</option>
+            <option value="newest">Newest</option>
+            <option value="price-low">Price Low</option>
+            <option value="price-high">Price High</option>
+          </select>
+        </label>
       </div>
 
       {loading ? (
@@ -337,7 +335,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
           </span>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+        <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 lg:grid-cols-4 lg:gap-5">
           {filteredProducts.map((product, index) => {
             const isOutOfStock = isProductOutOfStock(product);
             const isInCart = cart.some(item => item.product._id === product._id);
@@ -346,15 +344,15 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
               <div
                 key={product._id}
                 onClick={() => setSelectedProduct(product)}
-                className={`motion-card motion-lift group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-lg border border-white/5 bg-[#111]/30 p-2.5 transition-all duration-500 hover:border-purple-500/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] sm:p-3 md:p-5 ${isOutOfStock ? 'opacity-60' : ''}`}
+                className={`motion-card motion-lift group relative flex min-h-[10.25rem] cursor-pointer flex-row gap-3 overflow-hidden rounded-lg border border-white/5 bg-[#111]/30 p-2.5 transition-all duration-500 hover:border-purple-500/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] md:min-h-0 md:flex-col md:gap-0 md:p-5 ${isOutOfStock ? 'opacity-60' : ''}`}
                 style={{ animationDelay: `${Math.min(index, 16) * 45}ms` }}
               >
-                <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-lg border border-white/5 bg-[#050505] md:mb-4">
+                <div className="relative aspect-square w-[38%] min-w-[7.25rem] max-w-[9rem] shrink-0 overflow-hidden rounded-lg border border-white/5 bg-[#050505] md:mb-4 md:w-full md:min-w-0 md:max-w-none">
                   <img src={product.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <span className="absolute left-2 top-2 max-w-[calc(100%-4.5rem)] truncate rounded-md border border-white/5 bg-black/60 px-1.5 py-0.5 font-mono text-[7px] tracking-widest text-neutral-400 backdrop-blur-sm md:left-3 md:top-3 md:px-2 md:text-[8px]">
+                  <span className="absolute left-1.5 top-1.5 max-w-[calc(100%-3.75rem)] truncate rounded-md border border-white/5 bg-black/60 px-1.5 py-0.5 font-mono text-[6px] tracking-widest text-neutral-400 backdrop-blur-sm md:left-3 md:top-3 md:px-2 md:text-[8px]">
                     {product.category}
                   </span>
-                  <span className="absolute right-2 top-2 rounded-md bg-purple-500/90 px-1.5 py-0.5 font-mono text-[7px] font-black tracking-wider text-white shadow-[0_0_8px_rgba(168,85,247,0.4)] md:right-3 md:top-3 md:px-2 md:text-[8px]">
+                  <span className="absolute right-1.5 top-1.5 rounded-md bg-purple-500/90 px-1.5 py-0.5 font-mono text-[6px] font-black tracking-wider text-white shadow-[0_0_8px_rgba(168,85,247,0.4)] md:right-3 md:top-3 md:px-2 md:text-[8px]">
                     SIZE {product.size}
                   </span>
                   <button
@@ -363,7 +361,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                       handleToggleWishlist(product);
                     }}
                     aria-label={isSaved ? `Remove ${product.name} from saved items` : `Save ${product.name}`}
-                    className={`motion-press absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur-sm transition-all md:bottom-3 md:right-3 md:h-9 md:w-9 ${
+                    className={`motion-press absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur-sm transition-all md:bottom-3 md:right-3 md:h-9 md:w-9 ${
                       isSaved
                         ? 'border-pink-400/40 bg-pink-500/20 text-pink-300'
                         : 'border-white/10 bg-black/60 text-neutral-300 hover:text-white'
@@ -378,34 +376,41 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                   )}
                 </div>
 
-                <div className="mb-3 min-h-[3.05rem] space-y-1 text-left md:mb-4">
-                  <h3 className="line-clamp-2 text-[11px] font-black uppercase leading-[1.15] tracking-tight text-white transition-colors group-hover:text-purple-300 sm:text-xs md:text-sm md:leading-tight">
-                    {product.name}
-                  </h3>
-                  <p className={`font-mono text-[8px] uppercase leading-tight tracking-[0.14em] md:text-[9px] md:tracking-widest ${getStockToneClass(product)}`}>
-                    {getStockLabel(product)}
-                  </p>
-                </div>
+                <div className="flex min-w-0 flex-1 flex-col py-0.5 md:block md:py-0">
+                  <div className="mb-2 space-y-1 text-left md:mb-4 md:min-h-[3.05rem]">
+                    <h3 className="line-clamp-2 text-xs font-black uppercase leading-tight tracking-tight text-white transition-colors group-hover:text-purple-300 md:text-sm">
+                      {product.name}
+                    </h3>
+                    <p className={`font-mono text-[8px] uppercase leading-tight tracking-[0.12em] md:text-[9px] md:tracking-widest ${getStockToneClass(product)}`}>
+                      {getStockLabel(product)}
+                    </p>
+                    {product.description && (
+                      <p className="line-clamp-2 text-[10px] leading-snug text-neutral-500 md:hidden">
+                        {product.description}
+                      </p>
+                    )}
+                  </div>
 
-                <div className="mt-auto flex flex-col items-stretch gap-2 border-t border-white/5 pt-3 md:flex-row md:items-center md:justify-between md:pt-4">
-                  <span className="font-sans text-sm font-black text-white md:text-base">₹{product.price}</span>
-                  {isOutOfStock ? (
-                    <span className="rounded-lg border border-white/5 bg-neutral-800/50 px-2 py-2 text-center text-[8px] font-black uppercase tracking-[0.12em] text-neutral-500 md:px-4 md:py-2.5 md:text-[9px] md:tracking-widest">
-                      OUT OF STOCK
-                    </span>
-                  ) : (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleAddToCart(product); }}
-                      className={`motion-press flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[8px] font-black uppercase tracking-[0.12em] transition-all cursor-pointer md:min-h-0 md:px-4 md:py-2.5 md:text-[9px] md:tracking-widest ${
-                        isInCart
-                          ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400'
-                          : 'bg-white text-black hover:bg-purple-500 hover:text-white shadow-[0_0_12px_rgba(255,255,255,0.1)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-                      }`}
-                    >
-                      <span>{isInCart ? '✓ IN BAG' : 'ADD TO BAG'}</span>
-                      {!isInCart && <ArrowRight size={10} />}
-                    </button>
-                  )}
+                  <div className="mt-auto flex items-end justify-between gap-3 border-t border-white/5 pt-2 md:flex-row md:items-center md:pt-4">
+                    <span className="shrink-0 font-sans text-base font-black text-white md:text-base">₹{product.price}</span>
+                    {isOutOfStock ? (
+                      <span className="min-w-[6.25rem] rounded-lg border border-white/5 bg-neutral-800/50 px-2 py-2 text-center text-[8px] font-black uppercase tracking-[0.1em] text-neutral-500 md:px-4 md:py-2.5 md:text-[9px] md:tracking-widest">
+                        OUT OF STOCK
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleAddToCart(product); }}
+                        className={`motion-press flex min-h-9 min-w-[6.25rem] items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[8px] font-black uppercase tracking-[0.1em] transition-all cursor-pointer md:min-h-0 md:px-4 md:py-2.5 md:text-[9px] md:tracking-widest ${
+                          isInCart
+                            ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400'
+                            : 'bg-white text-black hover:bg-purple-500 hover:text-white shadow-[0_0_12px_rgba(255,255,255,0.1)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                        }`}
+                      >
+                        <span>{isInCart ? 'IN BAG' : 'ADD'}</span>
+                        {!isInCart && <ArrowRight size={10} />}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
