@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { v2 as cloudinary } from 'cloudinary';
+import { randomBytes } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import Product from '../models/Product';
 import { cacheSession, getCachedSession, deleteCachedSession, redisClient } from '../services/redis';
 import { normalizeInventory } from '../services/inventory';
 import { isAdminRequest } from '../utils/auth';
+import { cleanLongText, cleanText, isRecord, isValidObjectId } from '../utils/validation';
 
 const router = Router();
 
@@ -27,12 +29,56 @@ cloudinary.config({
 const allowedImageTypes = new Set(['jpeg', 'jpg', 'png', 'webp']);
 const maxUploadBytes = Number(process.env.IMAGE_UPLOAD_MAX_BYTES || 5 * 1024 * 1024);
 
+interface ProductPayload {
+  name: string;
+  category: string;
+  price: number;
+  size: string;
+  stock: number;
+  image: string;
+  description: string;
+}
+
+const hasImageSignature = (ext: string, buffer: Buffer): boolean => {
+  if (ext === 'jpg') return buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (ext === 'png') return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (ext === 'webp') return buffer.length > 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  return false;
+};
+
 const parseImageDataUrl = (image: string): { ext: string; buffer: Buffer } | null => {
   const matches = image.match(/^data:image\/([\w.+-]+);base64,(.+)$/);
   if (!matches) return null;
   const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1].toLowerCase();
   if (!allowedImageTypes.has(ext)) return null;
-  return { ext, buffer: Buffer.from(matches[2], 'base64') };
+  const data = matches[2].replace(/\s/g, '');
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data) || data.length % 4 !== 0) return null;
+  const buffer = Buffer.from(data, 'base64');
+  if (!hasImageSignature(ext, buffer)) return null;
+  return { ext, buffer };
+};
+
+const getProductPayload = (body: unknown): ProductPayload | null => {
+  if (!isRecord(body)) return null;
+  const name = cleanText(body.name, 90);
+  const category = cleanText(body.category, 50);
+  const size = cleanText(body.size, 24);
+  const image = cleanText(body.image, 2048);
+  const description = cleanLongText(body.description, 1200);
+  const price = Number(body.price);
+  const stock = Number(body.stock);
+  if (!name || !category || !size || !image || !Number.isFinite(price) || price <= 0 || !Number.isFinite(stock) || stock < 0) {
+    return null;
+  }
+  return {
+    name,
+    category,
+    price,
+    size,
+    stock: Math.floor(stock),
+    image,
+    description,
+  };
 };
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
@@ -88,19 +134,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
     }
-    const { name, category, price, size, stock, image, description } = req.body;
-    if (!name || !category || !price || !size || stock === undefined || stock === null || !image) {
-      res.status(400).json({ error: 'All fields are required' });
+    const payload = getProductPayload(req.body);
+    if (!payload) {
+      res.status(400).json({ error: 'Valid product details are required' });
       return;
     }
-    const numericPrice = Number(price);
-    const numericStock = Number(stock);
-    if (!Number.isFinite(numericPrice) || numericPrice <= 0 || !Number.isFinite(numericStock) || numericStock < 0) {
-      res.status(400).json({ error: 'Price and stock must be valid numbers' });
-      return;
-    }
-    const inventory = normalizeInventory({ stock: numericStock, initialStock: numericStock, reservedStock: 0 });
-    const product = new Product({ name, category, price: numericPrice, size, image, description, ...inventory });
+    const inventory = normalizeInventory({ stock: payload.stock, initialStock: payload.stock, reservedStock: 0 });
+    const product = new Product({ ...payload, ...inventory });
     await product.save();
     await deleteCachedSession('products:all');
     res.status(201).json(product);
@@ -117,11 +157,13 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
     }
-    const { name, category, price, size, stock, image, description } = req.body;
-    const numericPrice = Number(price);
-    const numericStock = Number(stock);
-    if (!Number.isFinite(numericPrice) || numericPrice <= 0 || !Number.isFinite(numericStock) || numericStock < 0) {
-      res.status(400).json({ error: 'Price and stock must be valid numbers' });
+    if (!isValidObjectId(req.params.id)) {
+      res.status(400).json({ error: 'Valid product id is required' });
+      return;
+    }
+    const payload = getProductPayload(req.body);
+    if (!payload) {
+      res.status(400).json({ error: 'Valid product details are required' });
       return;
     }
     const existing = await Product.findById(req.params.id);
@@ -130,11 +172,11 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const currentInventory = existing.toObject();
-    const nextInitialStock = Math.max(Number(currentInventory.initialStock || 0), numericStock);
-    const inventory = normalizeInventory({ ...currentInventory, stock: numericStock, initialStock: nextInitialStock, reservedStock: 0 });
+    const nextInitialStock = Math.max(Number(currentInventory.initialStock || 0), payload.stock);
+    const inventory = normalizeInventory({ ...currentInventory, stock: payload.stock, initialStock: nextInitialStock, reservedStock: 0 });
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      { name, category, price: numericPrice, size, image, description, ...inventory },
+      { ...payload, ...inventory },
       { new: true }
     );
     if (!updated) {
@@ -154,6 +196,10 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
     const isadmin = await isAdminRequest(req);
     if (!isadmin) {
       res.status(403).json({ error: 'Unauthorized admin access required' });
+      return;
+    }
+    if (!isValidObjectId(req.params.id)) {
+      res.status(400).json({ error: 'Valid product id is required' });
       return;
     }
     const deleted = await Product.findByIdAndDelete(req.params.id);
@@ -196,7 +242,7 @@ router.post('/upload', async (req: Request, res: Response): Promise<void> => {
       });
       res.status(200).json({ url: uploadResponse.secure_url });
     } catch {
-      const filename = `img_${Date.now()}.${parsedImage.ext}`;
+      const filename = `img_${Date.now()}_${randomBytes(6).toString('hex')}.${parsedImage.ext}`;
       const dir = path.join(process.cwd(), 'public', 'uploads');
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });

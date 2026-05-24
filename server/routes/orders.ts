@@ -9,11 +9,15 @@ import { createAndUploadInvoice } from '../services/invoice';
 import { sendOrderInvoiceEmail } from '../services/mail';
 import { isIntegrationConfigError } from '../services/integrationError';
 import { getRequestSession, isAdminRequest } from '../utils/auth';
+import { cleanEmail, cleanLongText, cleanPhone, cleanText, isRecord, isValidEmail, isValidObjectId } from '../utils/validation';
 import type { UserSession } from '../utils/auth';
 
 const router = Router();
 
 const reservationTtlSeconds = 900;
+const maxOrderItems = 20;
+const maxOrderQuantity = 20;
+const cashfreeOrderIdPattern = /^HT_\d{13}_[A-Z0-9]{4}$/;
 
 interface IncomingOrderItem {
   productId: string;
@@ -33,6 +37,14 @@ interface ReservedOrderItem {
   quantity: number;
 }
 
+interface OrderReservation {
+  userEmail: string;
+  items: VerifiedOrderItem[];
+  total: number;
+  shippingAddress: ShippingAddress;
+  createdAt: string;
+}
+
 interface ShippingAddress {
   name: string;
   phone: string;
@@ -45,18 +57,34 @@ interface ShippingAddress {
 
 const getSessionUser = async (req: Request): Promise<UserSession | null> => getRequestSession(req);
 
+class RequestValidationError extends Error {
+  statusCode: number;
+
+  constructor(message: string, statusCode = 400) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
 const getReservationExpiry = (): string => {
   return new Date(Date.now() + reservationTtlSeconds * 1000).toISOString();
 };
 
 const getVerifiedItems = async (items: IncomingOrderItem[]): Promise<{ verifiedItems: VerifiedOrderItem[]; total: number }> => {
+  if (items.length > maxOrderItems) throw new RequestValidationError(`A maximum of ${maxOrderItems} items can be ordered at once.`);
   const verifiedItems: VerifiedOrderItem[] = [];
   let total = 0;
 
   for (const item of items) {
+    if (!isRecord(item) || !isValidObjectId(item.productId)) {
+      throw new RequestValidationError('Valid order items are required.');
+    }
+    const quantity = Math.floor(Number(item.quantity || 1));
+    if (!Number.isFinite(quantity) || quantity < 1 || quantity > maxOrderQuantity) {
+      throw new RequestValidationError(`Item quantity must be between 1 and ${maxOrderQuantity}.`);
+    }
     const product = await Product.findById(item.productId);
-    if (!product) throw new Error(`"${item.name || 'Item'}" was not found.`);
-    const quantity = Math.max(1, Number(item.quantity || 1));
+    if (!product) throw new RequestValidationError(`"${item.name || 'Item'}" was not found.`, 404);
     verifiedItems.push({
       productId: product._id.toString(),
       name: product.name,
@@ -67,6 +95,23 @@ const getVerifiedItems = async (items: IncomingOrderItem[]): Promise<{ verifiedI
   }
 
   return { verifiedItems, total };
+};
+
+const normalizeShippingAddress = (value: unknown): ShippingAddress | null => {
+  if (!isRecord(value)) return null;
+  const address = {
+    name: cleanText(value.name, 80),
+    phone: cleanPhone(value.phone),
+    email: cleanEmail(value.email),
+    address: cleanLongText(value.address, 180),
+    city: cleanText(value.city, 80),
+    state: cleanText(value.state, 80),
+    pincode: cleanText(value.pincode, 12).replace(/\D/g, '').slice(0, 6),
+  };
+  if (!address.name || address.phone.length !== 10 || !isValidEmail(address.email) || !address.address || !address.city || !address.state || address.pincode.length !== 6) {
+    return null;
+  }
+  return address;
 };
 
 const getStringField = (value: Record<string, unknown> | null, key: string): string => {
@@ -111,6 +156,20 @@ const releaseReservedProducts = async (items: ReservedOrderItem[]): Promise<void
   }
 };
 
+const getStoredOrderReservation = async (cashfreeOrderId: string): Promise<OrderReservation> => {
+  if (!redisClient.isOpen) throw new RequestValidationError('Order reservation service is unavailable. Please try again in a few minutes.', 503);
+  const reservation = await getCachedSession<OrderReservation>(`reservation:order:${cashfreeOrderId}`);
+  if (!reservation || !Array.isArray(reservation.items) || !reservation.userEmail || !reservation.shippingAddress) {
+    throw new RequestValidationError('Payment reservation expired. Please start checkout again.', 409);
+  }
+  return reservation;
+};
+
+const getCashfreeOrderAmount = (status: Record<string, unknown>): number | null => {
+  const amount = Number(status.order_amount);
+  return Number.isFinite(amount) ? amount : null;
+};
+
 const completePaidReservation = async (item: VerifiedOrderItem): Promise<void> => {
   const product = await Product.findById(item.productId);
   if (!product) return;
@@ -129,7 +188,15 @@ const sendErrorResponse = (res: Response, error: unknown): void => {
     res.status(error.statusCode).json({ error: error.message });
     return;
   }
+  if (error instanceof RequestValidationError) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
   res.status(500).json({ error: 'Internal server error' });
+};
+
+const shouldLogError = (error: unknown): boolean => {
+  return !isIntegrationConfigError(error) && !(error instanceof RequestValidationError);
 };
 
 router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
@@ -146,6 +213,15 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
     }
     if (!isCashfreeConfigured()) {
       res.status(503).json({ error: 'Cashfree credentials are not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY.' });
+      return;
+    }
+    if (!redisClient.isOpen) {
+      res.status(503).json({ error: 'Order reservation service is unavailable. Please try again in a few minutes.' });
+      return;
+    }
+    const normalizedShippingAddress = normalizeShippingAddress(shippingAddress);
+    if (!normalizedShippingAddress) {
+      res.status(400).json({ error: 'Complete and valid shipping details are required' });
       return;
     }
 
@@ -202,7 +278,13 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       await redisClient.setEx(
         `reservation:order:${cashfreeOrderId}`,
         reservationTtlSeconds,
-        JSON.stringify(toReservedOrderItems(verifiedItems))
+        JSON.stringify({
+          userEmail: user.email,
+          items: verifiedItems,
+          total,
+          shippingAddress: normalizedShippingAddress,
+          createdAt: new Date().toISOString(),
+        } satisfies OrderReservation)
       );
     }
 
@@ -211,9 +293,9 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       cfOrder = await createCashfreeOrder(
         cashfreeOrderId,
         Number(total),
-        shippingAddress.email,
-        shippingAddress.phone,
-        shippingAddress.name
+        normalizedShippingAddress.email,
+        normalizedShippingAddress.phone,
+        normalizedShippingAddress.name
       );
     } catch (error) {
       await releaseReservedProducts(reservedItems);
@@ -236,7 +318,7 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       items: verifiedItems,
     });
   } catch (error) {
-    if (!isIntegrationConfigError(error)) console.error(error);
+    if (shouldLogError(error)) console.error(error);
     sendErrorResponse(res, error);
   }
 });
@@ -275,15 +357,30 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const { cashfreeOrderId, shippingAddress, items } = req.body;
-    if (!cashfreeOrderId || !shippingAddress || !Array.isArray(items) || items.length === 0) {
+    const { cashfreeOrderId } = req.body;
+    if (!cashfreeOrderId || !cashfreeOrderIdPattern.test(String(cashfreeOrderId))) {
       res.status(400).json({ error: 'Missing payment details' });
       return;
     }
 
-    const { verifiedItems, total } = await getVerifiedItems(items);
+    const reservation = await getStoredOrderReservation(String(cashfreeOrderId));
+    if (reservation.userEmail !== user.email) {
+      res.status(403).json({ error: 'This payment reservation belongs to another account' });
+      return;
+    }
+    const verifiedItems = reservation.items;
+    const total = reservation.total;
+    const shippingAddress = reservation.shippingAddress;
 
     const cfStatus = await verifyCashfreePayment(cashfreeOrderId);
+    const paidAmount = getCashfreeOrderAmount(cfStatus);
+    if (paidAmount !== null && Math.abs(paidAmount - total) > 0.5) {
+      await releaseReservedProducts(toReservedOrderItems(verifiedItems));
+      await redisClient.del(`reservation:order:${cashfreeOrderId}`);
+      await deleteCachedSession('products:all');
+      res.status(400).json({ error: 'Payment amount mismatch. Product reservations released.' });
+      return;
+    }
     if (cfStatus.order_status !== 'PAID') {
       let reservedItems = toReservedOrderItems(verifiedItems);
       if (redisClient.isOpen) {
@@ -300,14 +397,18 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
     }
 
     const lockedIds: string[] = [];
-    for (const item of verifiedItems) {
-      const lockKey = `lock:product:${item.productId}`;
-      await acquireLock(lockKey, 5);
-      lockedIds.push(item.productId);
-      await completePaidReservation(item);
-    }
-    for (const id of lockedIds) {
-      await releaseLock(`lock:product:${id}`);
+    try {
+      for (const item of verifiedItems) {
+        const lockKey = `lock:product:${item.productId}`;
+        const locked = await acquireLock(lockKey, 5);
+        if (!locked) throw new RequestValidationError('Inventory is busy. Please retry payment verification.', 409);
+        lockedIds.push(item.productId);
+        await completePaidReservation(item);
+      }
+    } finally {
+      for (const id of lockedIds) {
+        await releaseLock(`lock:product:${id}`);
+      }
     }
     if (redisClient.isOpen) {
       await redisClient.del(`reservation:order:${cashfreeOrderId}`);
@@ -361,7 +462,7 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
 
     res.status(201).json(order);
   } catch (error) {
-    if (!isIntegrationConfigError(error)) console.error(error);
+    if (shouldLogError(error)) console.error(error);
     sendErrorResponse(res, error);
   }
 });
@@ -402,7 +503,7 @@ router.get('/track/:shipmentId', async (req: Request, res: Response): Promise<vo
 
     res.json({ orderId: order._id, tracking: data });
   } catch (error) {
-    if (!isIntegrationConfigError(error)) console.error(error);
+    if (shouldLogError(error)) console.error(error);
     sendErrorResponse(res, error);
   }
 });
