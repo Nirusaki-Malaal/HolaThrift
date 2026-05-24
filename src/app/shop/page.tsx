@@ -9,6 +9,7 @@ import TermsAndConditions from '@/components/TermsAndConditions';
 import AuthModal from '@/components/AuthModal';
 import Archives from '@/components/Archives';
 import { LOADING_MESSAGES } from '@/constants/loading';
+import { getCookie, deleteCookie } from '@/utils/cookies';
 
 interface UserSession {
   email: string;
@@ -33,7 +34,7 @@ export default function Shop(): React.JSX.Element {
     }, 3000);
 
     const loadSession = async (): Promise<void> => {
-      const token = localStorage.getItem('auth_token');
+      const token = getCookie('auth_token');
       if (token) {
         try {
           const res = await fetch('/api/auth/me', {
@@ -43,7 +44,7 @@ export default function Shop(): React.JSX.Element {
             const data = await res.json();
             setCurrentUser(data);
           } else {
-            localStorage.removeItem('auth_token');
+            deleteCookie('auth_token');
           }
         } catch (err) {
           console.error(err);
@@ -70,7 +71,7 @@ export default function Shop(): React.JSX.Element {
   };
 
   const handleLogout = (): void => {
-    localStorage.removeItem('auth_token');
+    deleteCookie('auth_token');
     setCurrentUser(null);
     handlePageChange('home');
   };
