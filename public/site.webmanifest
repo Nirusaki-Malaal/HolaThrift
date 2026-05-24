@@ -1,0 +1,17 @@
+{
+  "name": "HolaThrift",
+  "short_name": "HolaThrift",
+  "description": "Curated rare vintage and streetwear drops in India.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

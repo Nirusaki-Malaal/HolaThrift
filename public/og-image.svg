@@ -1,0 +1,13 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#050505"/>
+  <path d="M0 430C190 332 313 520 502 389C690 259 837 105 1200 197V630H0V430Z" fill="#111827"/>
+  <path d="M0 441C178 363 330 528 505 407C674 290 854 123 1200 220" stroke="#38BDF8" stroke-opacity="0.28" stroke-width="2"/>
+  <path d="M0 480C205 374 345 555 541 418C751 270 891 153 1200 252" stroke="#A855F7" stroke-opacity="0.38" stroke-width="2"/>
+  <circle cx="917" cy="239" r="182" stroke="#A855F7" stroke-opacity="0.35" stroke-width="6"/>
+  <circle cx="917" cy="239" r="125" stroke="#EC4899" stroke-opacity="0.28" stroke-width="4"/>
+  <text x="72" y="116" fill="white" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="900" font-style="italic">HOLA<tspan fill="#A855F7">THRIFT</tspan></text>
+  <text x="72" y="292" fill="white" font-family="Inter, Arial, sans-serif" font-size="112" font-weight="900">RARE</text>
+  <text x="72" y="407" fill="#EC4899" font-family="Inter, Arial, sans-serif" font-size="116" font-weight="900" font-style="italic">GARMENTS</text>
+  <text x="78" y="474" fill="#D4D4D8" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="600">Curated one-of-one vintage and streetwear drops in India.</text>
+  <text x="78" y="528" fill="#A1A1AA" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="6">HOLATHRIFT.IN</text>
+</svg>
