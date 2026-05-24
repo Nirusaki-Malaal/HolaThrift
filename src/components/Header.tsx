@@ -40,6 +40,7 @@ function NavIconButton({ label, onClick, children, tone = 'default' }: NavIconBu
 export default function Header({ setActivePage, onLoginClick, user, isAdmin, theme, onThemeToggle, activePage }: HeaderProps): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const isHome = activePage === 'home';
+  const showArchivesLink = isHome || activePage === 'profile' || activePage === 'admin';
   const nextThemeLabel = theme === 'light' ? 'dark' : 'light';
 
   const goToPage = (page: string): void => {
@@ -65,7 +66,7 @@ export default function Header({ setActivePage, onLoginClick, user, isAdmin, the
       </div>
 
       <div className={`hidden items-center md:flex ${isHome ? 'gap-3' : 'gap-5'}`}>
-        {isHome && (
+        {showArchivesLink && (
           <button
             type="button"
             onClick={() => goToPage('archives')}
@@ -120,7 +121,7 @@ export default function Header({ setActivePage, onLoginClick, user, isAdmin, the
       {isMobileMenuOpen && (
         <div className="absolute top-[calc(100%+0.75rem)] left-0 w-full rounded-2xl border border-white/10 bg-[#050505]/95 p-4 shadow-2xl backdrop-blur-xl md:hidden animate-slide-up">
           <div className="flex flex-col gap-2">
-            {isHome ? (
+            {showArchivesLink ? (
               <button
                 className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-widest text-neutral-300 transition-all hover:bg-white/5 hover:text-white cursor-pointer"
                 onClick={() => goToPage('archives')}
