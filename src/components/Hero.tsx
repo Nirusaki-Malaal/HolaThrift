@@ -6,7 +6,7 @@ export default function Hero(): React.JSX.Element {
   return (
     <section className="relative z-10 flex min-h-screen w-full items-center justify-center overflow-hidden px-4 text-center transform-gpu">
       <HeroScene />
-      <div className="absolute inset-0 bg-black/35"></div>
+      <div className="hero-overlay absolute inset-0 bg-black/35"></div>
 
       <div className="relative z-10 flex flex-col items-center">
         <div className="relative perspective-1000 mb-8 select-none motion-hero-copy">

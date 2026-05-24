@@ -14,6 +14,7 @@ import ToastContainer from '@/components/Toast';
 import { LOADING_MESSAGES } from '@/constants/loading';
 import { getCookie, deleteCookie } from '@/utils/cookies';
 import { useToast } from '@/hooks/useToast';
+import { useTheme } from '@/hooks/useTheme';
 import type { UserSession } from '@/types/user';
 
 export default function Shop(): React.JSX.Element {
@@ -24,6 +25,7 @@ export default function Shop(): React.JSX.Element {
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const { toasts, addToast, removeToast } = useToast();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const textTimeout = setTimeout(() => {
@@ -94,6 +96,8 @@ export default function Shop(): React.JSX.Element {
         user={currentUser}
         onLogout={handleLogout}
         isAdmin={Boolean(currentUser?.isAdmin)}
+        theme={theme}
+        onThemeToggle={toggleTheme}
       />
       
       {activePage === 'home' && (

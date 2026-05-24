@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, User, Menu, X } from 'lucide-react';
+import { Sparkles, User, Menu, X, Sun, Moon } from 'lucide-react';
 import type { UserSession } from '@/types/user';
+import type { ThemeMode } from '@/hooks/useTheme';
 
 interface HeaderProps {
   readonly setActivePage: (page: string) => void;
@@ -8,10 +9,13 @@ interface HeaderProps {
   readonly user: UserSession | null;
   readonly onLogout: () => void;
   readonly isAdmin: boolean;
+  readonly theme: ThemeMode;
+  readonly onThemeToggle: () => void;
 }
 
-export default function Header({ setActivePage, onLoginClick, user, isAdmin }: HeaderProps): React.JSX.Element {
+export default function Header({ setActivePage, onLoginClick, user, isAdmin, theme, onThemeToggle }: HeaderProps): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const nextThemeLabel = theme === 'light' ? 'dark' : 'light';
 
   return (
     <nav className="motion-navbar fixed top-0 left-0 w-full z-50 bg-[#050505]/80 backdrop-blur-md border-b border-white/5 py-4 px-6 md:px-12 flex justify-between items-center transition-all duration-300">
@@ -25,6 +29,15 @@ export default function Header({ setActivePage, onLoginClick, user, isAdmin }: H
       </div>
 
       <div className="hidden md:flex items-center space-x-6">
+        <button
+          type="button"
+          onClick={onThemeToggle}
+          aria-label={`Switch to ${nextThemeLabel} mode`}
+          className="motion-press flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-neutral-300 transition-all hover:bg-white hover:text-black hover:shadow-[0_0_20px_rgba(255,255,255,0.35)] cursor-pointer"
+        >
+          {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+        </button>
+
         {user ? (
           <>
             <button
@@ -59,7 +72,15 @@ export default function Header({ setActivePage, onLoginClick, user, isAdmin }: H
         )}
       </div>
 
-      <div className="flex md:hidden items-center">
+      <div className="flex md:hidden items-center gap-2">
+        <button
+          type="button"
+          onClick={onThemeToggle}
+          aria-label={`Switch to ${nextThemeLabel} mode`}
+          className="motion-press flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-neutral-300 transition-all hover:text-white cursor-pointer"
+        >
+          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+        </button>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2 text-neutral-400 hover:text-white transition-colors cursor-pointer"
