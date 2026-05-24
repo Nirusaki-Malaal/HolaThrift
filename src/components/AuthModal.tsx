@@ -34,32 +34,62 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     setError('');
     setLoading(true);
 
-    if (mode === 'signup' && step === 'form') {
-      try {
-        const response = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, phone, password }),
-        });
+    if (step === 'form') {
+      if (mode === 'signup') {
+        try {
+          const response = await fetch('/api/auth/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, phone, password }),
+          });
 
-        const data = await response.json();
-        if (!response.ok) {
-          setError(data.error || 'Failed to send verification code');
+          const data = await response.json();
+          if (!response.ok) {
+            setError(data.error || 'Oops! We could not send your verification code. Please check your details.');
+            setLoading(false);
+            return;
+          }
+
+          setStep('verify');
+        } catch (err) {
+          setError('We had trouble connecting to our system. Please try again in a few seconds!');
+        } finally {
           setLoading(false);
-          return;
         }
+      } else {
+        try {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
 
-        setStep('verify');
-      } catch (err) {
-        setError('Database connection error');
-      } finally {
-        setLoading(false);
+          const data = await response.json();
+          if (!response.ok) {
+            setError(data.error || 'Those details do not match our records. Please double-check and try again!');
+            setLoading(false);
+            return;
+          }
+
+          if (data.requiresOtp) {
+            setStep('verify');
+          } else {
+            setCookie('auth_token', data.token, 1);
+            onSuccess(data.user);
+            handleReset();
+            onClose();
+          }
+        } catch (err) {
+          setError('We had trouble connecting to our system. Please try again in a few seconds!');
+        } finally {
+          setLoading(false);
+        }
       }
       return;
     }
 
-    const url = mode === 'login' ? '/api/auth/login' : '/api/auth/verify-signup';
-    const payload = mode === 'login' ? { email, password } : { email, otp };
+    const url = mode === 'login' ? '/api/auth/verify-login' : '/api/auth/verify-signup';
+    const payload = { email, otp };
 
     try {
       const response = await fetch(url, {
@@ -70,7 +100,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
       const data = await response.json();
       if (!response.ok) {
-        setError(data.error || 'Authentication failed');
+        setError(data.error || 'Incorrect security code. Please try again!');
         setLoading(false);
         return;
       }
@@ -80,7 +110,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       handleReset();
       onClose();
     } catch (err) {
-      setError('Connection to backend failed');
+      setError('Connection failed. Let us try that again!');
     } finally {
       setLoading(false);
     }
@@ -117,7 +147,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                   setError('');
                 }}
                 className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 cursor-pointer ${
-                  mode === 'login' ? 'bg-white text-black shadow-lg' : 'text-neutral-400 hover:text-white'
+                  mode === 'login' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 Sign In
@@ -129,7 +159,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                   setError('');
                 }}
                 className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 cursor-pointer ${
-                  mode === 'signup' ? 'bg-white text-black shadow-lg' : 'text-neutral-400 hover:text-white'
+                  mode === 'signup' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 Create Account
@@ -138,10 +168,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
             <div className="text-center mb-8">
               <h2 className="text-2xl font-black text-white uppercase tracking-tight">
-                {mode === 'login' ? 'Welcome Back' : 'Join the Archive'}
+                {mode === 'login' ? "Let's sign you in 👋" : 'Join the Hola Thrift family ✨'}
               </h2>
-              <p className="text-neutral-400 text-xs mt-2 font-mono uppercase tracking-widest">
-                {mode === 'login' ? 'Securely access your saved items' : 'Gain full access to raw drops'}
+              <p className="text-neutral-400 text-xs mt-2 font-mono uppercase tracking-widest leading-relaxed">
+                {mode === 'login'
+                  ? 'Welcome back! Ready to explore the archives?'
+                  : 'Unlock curated vintage items and exclusive releases'}
               </p>
             </div>
           </>
@@ -151,12 +183,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               <ShieldCheck size={28} className="text-purple-400" />
             </div>
             <h2 className="text-2xl font-black text-white uppercase tracking-tight">
-              Verify Email
+              Check your email 📬
             </h2>
-            <p className="text-neutral-400 text-xs mt-2 font-mono uppercase tracking-widest leading-relaxed">
-              We sent a 6-digit verification code to
+            <p className="text-neutral-400 text-xs mt-2 font-sans leading-relaxed">
+              {mode === 'login'
+                ? 'To keep your account extra secure, we have sent a 6-digit login code to:'
+                : 'To complete your registration, we have sent a 6-digit verification code to:'}
               <br />
-              <span className="text-white font-bold">{email}</span>
+              <span className="text-white font-bold font-mono text-sm block mt-1">{email}</span>
             </p>
           </div>
         )}
@@ -175,10 +209,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 <input
                   required
                   type="email"
-                  placeholder="EMAIL ADDRESS"
+                  placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#050505] pl-12 pr-4 py-4 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#050505] pl-12 pr-4 py-4 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
                 />
               </div>
 
@@ -188,10 +222,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                   <input
                     required
                     type="tel"
-                    placeholder="PHONE NUMBER"
+                    placeholder="Enter your phone number"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-[#050505] pl-12 pr-4 py-4 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                    className="w-full bg-[#050505] pl-12 pr-4 py-4 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
                   />
                 </div>
               )}
@@ -201,10 +235,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 <input
                   required
                   type="password"
-                  placeholder="PASSWORD"
+                  placeholder={mode === 'login' ? 'Enter your password' : 'Choose a secure password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#050505] pl-12 pr-4 py-4 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#050505] pl-12 pr-4 py-4 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
                 />
               </div>
 
@@ -213,8 +247,24 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 disabled={loading}
                 className="w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer"
               >
-                {loading ? 'Processing...' : mode === 'login' ? 'Authenticate' : 'Send Access Code'}
+                {loading ? 'Processing...' : mode === 'login' ? 'Continue to Sign In' : 'Get my verification code'}
               </button>
+
+              <div className="text-center mt-6 pt-6 border-t border-white/5">
+                <p className="text-neutral-400 text-xs font-sans">
+                  {mode === 'login' ? 'New to Hola Thrift?' : 'Already have an account?'}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode(mode === 'login' ? 'signup' : 'login');
+                      setError('');
+                    }}
+                    className="text-white font-bold hover:underline cursor-pointer focus:outline-none ml-1.5 bg-transparent border-none p-0 inline"
+                  >
+                    {mode === 'login' ? 'Create an account' : 'Sign in'}
+                  </button>
+                </p>
+              </div>
             </>
           ) : (
             <>
@@ -224,10 +274,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                   autoFocus
                   maxLength={6}
                   type="text"
-                  placeholder="6-DIGIT CODE"
+                  placeholder="6-digit code"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  className="w-full bg-[#050505] py-4 rounded-xl border border-white/5 text-white text-center text-sm font-mono tracking-[0.4em] font-black outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#050505] py-4 rounded-xl border border-white/5 text-white text-center text-sm font-mono tracking-[0.4em] font-black outline-none focus:border-purple-500 transition-colors placeholder:tracking-normal placeholder:font-sans placeholder:text-xs"
                 />
               </div>
 
@@ -236,7 +286,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 disabled={loading || otp.length < 6}
                 className="w-full py-4 bg-purple-500 hover:bg-purple-600 text-white font-black rounded-xl uppercase text-xs tracking-widest transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(168,85,247,0.35)] cursor-pointer"
               >
-                {loading ? 'Verifying...' : 'Verify and Create Account'}
+                {loading ? 'Verifying...' : mode === 'login' ? 'Verify & Sign In' : 'Verify & Complete Signup'}
               </button>
 
               <button
@@ -253,3 +303,4 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     </div>
   );
 }
+

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
-import { sendWelcomeEmail, sendOtpEmail } from '../services/mail';
+import { sendWelcomeEmail, sendOtpEmail, sendLoginOtpEmail } from '../services/mail';
 import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
 
 const router = Router();
@@ -102,12 +102,50 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await cacheSession(`login_otp:${email}`, { otp }, 600);
+    await sendLoginOtpEmail(email, otp);
+
+    res.status(200).json({ requiresOtp: true, email });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/verify-login', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      res.status(400).json({ error: 'Email and verification code are required' });
+      return;
+    }
+
+    const cached = await getCachedSession(`login_otp:${email}`);
+    if (!cached) {
+      res.status(400).json({ error: 'Verification code expired or invalid' });
+      return;
+    }
+
+    if (cached.otp !== otp) {
+      res.status(400).json({ error: 'Incorrect verification code' });
+      return;
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    await deleteCachedSession(`login_otp:${email}`);
+
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
     const userSession = { id: user._id, email: user.email, phone: user.phone };
-    
+
     await cacheSession(`session:${token}`, userSession);
 
-    res.json({ token, user: userSession });
+    res.status(200).json({ token, user: userSession });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
