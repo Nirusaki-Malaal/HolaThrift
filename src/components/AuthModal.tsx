@@ -140,7 +140,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         }}
       ></div>
       
-      <div className="relative bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-8 animate-fade-in-up shadow-[0_0_50px_rgba(168,85,247,0.25)] text-left">
+      <div className="motion-modal relative bg-[#111] border border-white/10 w-full max-w-md rounded-[2rem] p-8 shadow-[0_0_50px_rgba(168,85,247,0.25)] text-left">
         <button
           onClick={() => {
             handleReset();
@@ -287,7 +287,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer"
+                className="motion-press w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer"
               >
                 {loading ? 'Processing...' : mode === 'login' ? 'Continue to Sign In' : 'Get my verification code'}
               </button>
@@ -326,7 +326,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
               <button
                 type="submit"
                 disabled={loading || otp.length < 6}
-                className="w-full py-4 bg-purple-500 hover:bg-purple-600 text-white font-black rounded-xl uppercase text-xs tracking-widest transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(168,85,247,0.35)] cursor-pointer"
+                className="motion-press w-full py-4 bg-purple-500 hover:bg-purple-600 text-white font-black rounded-xl uppercase text-xs tracking-widest transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(168,85,247,0.35)] cursor-pointer"
               >
                 {loading ? 'Verifying...' : mode === 'login' ? 'Verify & Sign In' : 'Verify & Complete Signup'}
               </button>

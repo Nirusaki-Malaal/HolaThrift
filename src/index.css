@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "./styles/animations.css";
 
-/* Modern, high-performance base adjustments */
 :root {
   color-scheme: dark;
 }

@@ -14,7 +14,7 @@ export default function Header({ setActivePage, onLoginClick, user, isAdmin }: H
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 bg-[#050505]/80 backdrop-blur-md border-b border-white/5 py-4 px-6 md:px-12 flex justify-between items-center transition-all duration-300">
+    <nav className="motion-navbar fixed top-0 left-0 w-full z-50 bg-[#050505]/80 backdrop-blur-md border-b border-white/5 py-4 px-6 md:px-12 flex justify-between items-center transition-all duration-300">
       <div className="flex items-center space-x-2 cursor-pointer group" onClick={() => setActivePage('home')}>
         <div className="bg-white text-black p-1.5 rounded-lg group-hover:rotate-12 transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.5)]">
           <Sparkles size={18} className="fill-current" />
@@ -29,20 +29,20 @@ export default function Header({ setActivePage, onLoginClick, user, isAdmin }: H
           <>
             <button
               onClick={() => setActivePage('archives')}
-              className="text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
+              className="motion-lift text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
             >
               ARCHIVES
             </button>
             <button
               onClick={() => setActivePage('profile')}
-              className="text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
+              className="motion-lift text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
             >
               MY ACCOUNT
             </button>
             {isAdmin && (
               <button
                 onClick={() => setActivePage('admin')}
-                className="text-purple-400 hover:text-purple-300 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
+                className="motion-lift text-purple-400 hover:text-purple-300 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
               >
                 ADMIN PANEL
               </button>
@@ -51,7 +51,7 @@ export default function Header({ setActivePage, onLoginClick, user, isAdmin }: H
         ) : (
           <button
             onClick={onLoginClick}
-            className="flex items-center space-x-2 bg-white/5 border border-white/10 px-5 py-2.5 rounded-xl text-xs font-black tracking-widest text-neutral-300 hover:text-black hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-300 cursor-pointer"
+            className="motion-lift motion-press flex items-center space-x-2 bg-white/5 border border-white/10 px-5 py-2.5 rounded-xl text-xs font-black tracking-widest text-neutral-300 hover:text-black hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-300 cursor-pointer"
           >
             <User size={14} />
             <span>LOGIN</span>
@@ -69,7 +69,7 @@ export default function Header({ setActivePage, onLoginClick, user, isAdmin }: H
       </div>
 
       {isMobileMenuOpen && (
-        <div className="absolute top-full left-0 w-full bg-[#050505]/95 backdrop-blur-lg border-b border-white/5 flex flex-col p-6 space-y-4 md:hidden animate-fade-in shadow-2xl">
+        <div className="absolute top-full left-0 w-full bg-[#050505]/95 backdrop-blur-lg border-b border-white/5 flex flex-col p-6 space-y-4 md:hidden animate-slide-up shadow-2xl">
           <button
             className="text-neutral-400 hover:text-white font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
             onClick={() => {

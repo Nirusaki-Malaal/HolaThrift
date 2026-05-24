@@ -11,7 +11,7 @@ interface SavedAddressFormProps {
 
 export default function SavedAddressForm({ address, saving, onChange, onSave }: SavedAddressFormProps): React.JSX.Element {
   return (
-    <div className="rounded-3xl border border-white/5 bg-[#111]/40 p-6">
+    <div className="motion-panel rounded-3xl border border-white/5 bg-[#111]/40 p-6">
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-400">
           <MapPin size={14} />
@@ -33,7 +33,7 @@ export default function SavedAddressForm({ address, saving, onChange, onSave }: 
         <input value={address.state} onChange={(event) => onChange({ state: event.target.value })} className="rounded-xl border border-white/10 bg-[#050505] px-3 py-3 text-xs text-white outline-none focus:border-purple-500" placeholder="State" />
       </div>
 
-      <button onClick={onSave} disabled={saving} className="mt-5 rounded-xl bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-purple-500 hover:text-white disabled:opacity-50">
+      <button onClick={onSave} disabled={saving} className="motion-press mt-5 rounded-xl bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-black transition-all hover:bg-purple-500 hover:text-white disabled:opacity-50">
         {saving ? 'Saving...' : 'Save Address'}
       </button>
     </div>

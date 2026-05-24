@@ -7,7 +7,6 @@
   perspective: 1000px;
 }
 
-/* The Tron Moving Grid */
 @keyframes grid-flow {
   0% { transform: translateY(0); }
   100% { transform: translateY(40px); }
@@ -17,7 +16,6 @@
   animation: grid-flow 2s linear infinite;
 }
 
-/* The Hacker Glitch Effect */
 .glitch-text {
   position: relative;
   color: white;
@@ -72,7 +70,6 @@
   100% { clip: rect(65px, 9999px, 100px, 0); transform: skew(0); }
 }
 
-/* Holographic Shine Swipe */
 @keyframes shine {
   100% { transform: translateX(150%); }
 }
@@ -81,7 +78,6 @@
   animation: shine 1.5s ease-in-out infinite;
 }
 
-/* Basic Animations */
 @keyframes slide-in-right {
   0% { transform: translateX(100%); }
   100% { transform: translateX(0); }
@@ -159,6 +155,109 @@
   transform-style: preserve-3d;
 }
 
+@keyframes page-enter {
+  0% { opacity: 0; transform: translateY(18px) scale(0.985); filter: blur(8px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes card-rise {
+  0% { opacity: 0; transform: translateY(26px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes modal-rise {
+  0% { opacity: 0; transform: translateY(26px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes drawer-in {
+  0% { opacity: 0; transform: translateX(36px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes navbar-drop {
+  0% { opacity: 0; transform: translateY(-18px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hero-copy {
+  0% { opacity: 0; transform: translateY(28px) scale(0.98); filter: blur(10px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes shimmer-band {
+  0% { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  20% { opacity: 0.7; }
+  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+}
+
+.motion-page {
+  animation: page-enter 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.motion-card {
+  animation: card-rise 0.68s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.motion-panel {
+  animation: card-rise 0.58s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: transform 240ms ease, border-color 240ms ease, box-shadow 240ms ease, background-color 240ms ease;
+}
+
+.motion-lift {
+  transition: transform 260ms ease, border-color 260ms ease, box-shadow 260ms ease, background-color 260ms ease, color 260ms ease;
+}
+
+.motion-lift:hover {
+  transform: translateY(-6px) scale(1.01);
+}
+
+.motion-press:active {
+  transform: scale(0.97);
+}
+
+.motion-modal {
+  animation: modal-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.motion-drawer {
+  animation: drawer-in 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.motion-navbar {
+  animation: navbar-drop 0.52s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.motion-hero-copy {
+  animation: hero-copy 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.motion-shimmer {
+  position: relative;
+  isolation: isolate;
+}
+
+.motion-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  z-index: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.36), transparent);
+  animation: shimmer-band 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

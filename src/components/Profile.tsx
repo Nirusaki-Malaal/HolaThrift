@@ -266,8 +266,8 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
   const initials = (user?.name || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
-    <div className="flex-grow max-w-4xl mx-auto px-6 md:px-12 pt-28 pb-12 w-full animate-fade-in relative z-10 text-left">
-      <div className="flex items-center gap-5 mb-8">
+    <div className="motion-page flex-grow max-w-4xl mx-auto px-6 md:px-12 pt-28 pb-12 w-full relative z-10 text-left">
+      <div className="motion-card flex items-center gap-5 mb-8">
         <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-2xl font-black shrink-0">
           {initials}
         </div>
@@ -281,7 +281,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
         </div>
       </div>
 
-      <div className="flex bg-[#050505] p-1 rounded-xl border border-white/5 mb-8 max-w-md">
+      <div className="motion-card flex bg-[#050505] p-1 rounded-xl border border-white/5 mb-8 max-w-md" style={{ animationDelay: '80ms' }}>
         <button
           onClick={() => setActiveTab('account')}
           className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${activeTab === 'account' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}
@@ -304,7 +304,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
 
       {activeTab === 'account' && (
         <div className="space-y-4">
-          <div className="bg-[#111]/40 border border-white/5 rounded-3xl p-6">
+          <div className="motion-panel bg-[#111]/40 border border-white/5 rounded-3xl p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                 <User size={14} />
@@ -384,7 +384,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
             onSave={saveAddress}
           />
 
-          <div className="bg-[#111]/40 border border-white/5 rounded-3xl p-6">
+          <div className="motion-panel bg-[#111]/40 border border-white/5 rounded-3xl p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                 <Shield size={14} />
@@ -451,7 +451,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
       )}
 
       {activeTab === 'orders' && (
-        <div className="bg-[#111]/40 border border-white/5 rounded-3xl p-6 min-h-[300px]">
+        <div className="motion-panel bg-[#111]/40 border border-white/5 rounded-3xl p-6 min-h-[300px]">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-8 h-8 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
               <Package size={14} />
@@ -478,7 +478,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                 const hasShipping = Boolean(trackingId);
                 const isTracking = activeTrackingId === trackingId;
                 return (
-                  <div key={order._id} className="bg-[#050505] border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all space-y-4">
+                  <div key={order._id} className="motion-card bg-[#050505] border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
                         <span className="text-neutral-500 font-mono text-[9px] uppercase tracking-widest block mb-1">

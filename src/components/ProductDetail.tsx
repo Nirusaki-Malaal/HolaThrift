@@ -27,7 +27,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, isInCart 
     <div className="fixed inset-0 z-[200] flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose}></div>
 
-      <div className="relative bg-[#0d0d0d] border border-white/10 w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(168,85,247,0.2)] animate-fade-in-up">
+      <div className="motion-modal relative bg-[#0d0d0d] border border-white/10 w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(168,85,247,0.2)]">
         <button
           onClick={onClose}
           className="absolute top-6 right-6 z-10 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white hover:border-white/30 transition-all cursor-pointer"
@@ -99,7 +99,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, isInCart 
               ) : (
                 <button
                   onClick={() => { onAddToCart(product); onClose(); }}
-                  className="w-full py-4 bg-white text-black hover:bg-purple-500 hover:text-white font-black rounded-xl uppercase text-xs tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="motion-press w-full py-4 bg-white text-black hover:bg-purple-500 hover:text-white font-black rounded-xl uppercase text-xs tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2"
                 >
                   <span>ADD TO BAG</span>
                   <ArrowRight size={14} />

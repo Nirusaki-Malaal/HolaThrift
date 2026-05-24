@@ -197,8 +197,8 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
   const soldCount = filteredProducts.filter(p => p.status === 'sold').length;
 
   return (
-    <div className="flex-grow max-w-7xl mx-auto px-6 md:px-12 pt-28 pb-12 w-full animate-fade-in relative z-10 text-left">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6 mb-8">
+    <div className="motion-page flex-grow max-w-7xl mx-auto px-6 md:px-12 pt-28 pb-12 w-full relative z-10 text-left">
+      <div className="motion-panel flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6 mb-8">
         <div>
           <span className="text-purple-400 text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse-fast"></span>
@@ -211,7 +211,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
 
         <button
           onClick={() => setCartOpen(true)}
-          className="relative flex items-center gap-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-black hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] px-5 py-3.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer"
+          className="motion-lift motion-press relative flex items-center gap-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-black hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] px-5 py-3.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer"
         >
           <ShoppingBag size={14} />
           <span>MY BAG</span>
@@ -223,7 +223,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 mb-8 items-stretch lg:items-center">
+      <div className="motion-panel flex flex-col lg:flex-row gap-4 mb-8 items-stretch lg:items-center">
         <div className="relative flex-grow">
           <Search className="absolute left-4 top-4 text-neutral-500" size={16} />
           <input
@@ -274,13 +274,13 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
+        <div className="motion-card flex items-center justify-center h-64">
           <span className="text-neutral-500 font-mono text-[10px] uppercase tracking-widest animate-pulse">
             Loading archives catalog from vault...
           </span>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 border border-dashed border-white/5 rounded-[2rem] text-center p-8">
+        <div className="motion-card flex flex-col items-center justify-center h-64 border border-dashed border-white/5 rounded-[2rem] text-center p-8">
           <AlertCircle className="text-neutral-500 mb-4" size={24} />
           <span className="text-neutral-500 font-mono text-xs uppercase tracking-widest mb-1">
             No matching archives found
@@ -291,7 +291,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {filteredProducts.map((product) => {
+          {filteredProducts.map((product, index) => {
             const isSold = product.status === 'sold';
             const isInCart = cart.some(item => item.product._id === product._id);
             const isSaved = wishlistIds.has(product._id);
@@ -299,7 +299,8 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
               <div
                 key={product._id}
                 onClick={() => setSelectedProduct(product)}
-                className={`group relative bg-[#111]/30 border border-white/5 rounded-[2rem] p-5 hover:border-purple-500/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-500 flex flex-col justify-between overflow-hidden cursor-pointer ${isSold ? 'opacity-60' : ''}`}
+                className={`motion-card motion-lift group relative bg-[#111]/30 border border-white/5 rounded-[2rem] p-5 hover:border-purple-500/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-500 flex flex-col justify-between overflow-hidden cursor-pointer ${isSold ? 'opacity-60' : ''}`}
+                style={{ animationDelay: `${Math.min(index, 16) * 45}ms` }}
               >
                 <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4 bg-[#050505] border border-white/5">
                   <img src={product.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -315,7 +316,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                       handleToggleWishlist(product);
                     }}
                     aria-label={isSaved ? `Remove ${product.name} from saved items` : `Save ${product.name}`}
-                    className={`absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-sm transition-all ${
+                    className={`motion-press absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-sm transition-all ${
                       isSaved
                         ? 'border-pink-400/40 bg-pink-500/20 text-pink-300'
                         : 'border-white/10 bg-black/60 text-neutral-300 hover:text-white'
@@ -348,7 +349,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                   ) : (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleAddToCart(product); }}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 font-black text-[9px] uppercase tracking-widest rounded-xl transition-all cursor-pointer active:scale-95 ${
+                      className={`motion-press flex items-center gap-1.5 px-4 py-2.5 font-black text-[9px] uppercase tracking-widest rounded-xl transition-all cursor-pointer ${
                         isInCart
                           ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400'
                           : 'bg-white text-black hover:bg-purple-500 hover:text-white shadow-[0_0_12px_rgba(255,255,255,0.1)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]'
@@ -369,7 +370,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
         <div className="fixed inset-0 z-[250] flex justify-end">
           <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setCartOpen(false)}></div>
           
-          <div className="relative w-full max-w-md bg-[#0a0a0a] border-l border-white/10 h-full p-8 flex flex-col justify-between shadow-[-10px_0_50px_rgba(0,0,0,0.8)] animate-slide-in">
+          <div className="motion-drawer relative w-full max-w-md bg-[#0a0a0a] border-l border-white/10 h-full p-8 flex flex-col justify-between shadow-[-10px_0_50px_rgba(0,0,0,0.8)]">
             <div>
               <div className="flex justify-between items-center border-b border-white/5 pb-6 mb-6">
                 <div className="flex items-center gap-2">
@@ -388,8 +389,8 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                 </div>
               ) : (
                 <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar text-left">
-                  {cart.map((item) => (
-                    <div key={item.product._id} className="bg-[#111]/30 border border-white/5 rounded-2xl p-4 flex gap-4 items-center">
+                  {cart.map((item, index) => (
+                    <div key={item.product._id} className="motion-card bg-[#111]/30 border border-white/5 rounded-2xl p-4 flex gap-4 items-center" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
                       <img src={item.product.image} alt="" className="w-14 h-14 rounded-xl object-cover border border-white/5 bg-[#050505]" />
                       <div className="flex-grow min-w-0">
                         <h4 className="text-white font-black text-xs uppercase truncate">{item.product.name}</h4>

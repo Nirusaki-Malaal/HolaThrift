@@ -293,7 +293,7 @@ export default function CheckoutModal({
     <div className="fixed inset-0 z-[300] flex items-center justify-center px-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={step === 'processing' ? undefined : onClose}></div>
 
-      <div className="relative bg-[#0d0d0d] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-8 shadow-[0_0_80px_rgba(168,85,247,0.3)] text-left animate-fade-in-up my-8">
+      <div className="motion-modal relative bg-[#0d0d0d] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-8 shadow-[0_0_80px_rgba(168,85,247,0.3)] text-left my-8">
         {step === 'address' && (
           <>
             <div className="text-center mb-6">
@@ -415,7 +415,7 @@ export default function CheckoutModal({
 
               <button
                 type="submit"
-                className="w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer mt-6"
+                className="motion-press w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer mt-6"
               >
                 PROCEED TO PAY ₹{total}
               </button>
@@ -489,7 +489,7 @@ export default function CheckoutModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.15)]"
+              className="motion-press w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.15)]"
             >
               Back to Catalog
             </button>
