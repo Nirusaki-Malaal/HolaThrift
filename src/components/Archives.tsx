@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingBag, Search, X, ArrowRight, AlertCircle, Heart, SlidersHorizontal } from 'lucide-react';
+import { ShoppingBag, Search, X, ArrowRight, AlertCircle, Heart, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
-import { getResponseError, readJson } from '@/utils/http';
+import { getErrorMessage, getResponseError, readJson } from '@/utils/http';
 import CheckoutModal from './CheckoutModal';
 import ProductDetail from './ProductDetail';
 import CartDrawer from './cart/CartDrawer';
@@ -21,6 +21,7 @@ interface ArchivesProps {
 export default function Archives({ user, onToast }: ArchivesProps): React.JSX.Element {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [catalogError, setCatalogError] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_FILTER_VALUE);
   const [selectedSize, setSelectedSize] = useState<string>(ALL_FILTER_VALUE);
@@ -46,12 +47,14 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
     if (showLoading) setLoading(true);
     try {
       const res = await fetch('/api/products');
-      if (res.ok) {
-        const data = await readJson<ProductItem[]>(res);
-        setProducts(data);
-      }
+      const data = await readJson<ProductItem[] | { error?: string }>(res);
+      if (!res.ok) throw new Error(getResponseError(data, 'Archives could not be loaded'));
+      if (!Array.isArray(data)) throw new Error('Archives response was not valid');
+      setProducts(data);
+      setCatalogError('');
     } catch (err) {
       console.error(err);
+      setCatalogError(getErrorMessage(err, 'Archives could not be loaded'));
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -307,6 +310,21 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
           <span className="text-neutral-500 font-mono text-[10px] uppercase tracking-widest animate-pulse">
             Loading archives catalog from vault...
           </span>
+        </div>
+      ) : catalogError && products.length === 0 ? (
+        <div className="motion-card flex h-56 flex-col items-center justify-center rounded-lg border border-red-500/20 bg-red-500/5 p-8 text-center md:h-64">
+          <AlertCircle className="text-red-400 mb-4" size={24} />
+          <span className="text-red-400 font-mono text-xs uppercase tracking-widest mb-2">
+            {catalogError}
+          </span>
+          <button
+            type="button"
+            onClick={() => fetchProducts(true)}
+            className="motion-press mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-white transition-colors hover:bg-white hover:text-black"
+          >
+            <RefreshCw size={13} />
+            <span>Retry</span>
+          </button>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="motion-card flex h-56 flex-col items-center justify-center rounded-lg border border-dashed border-white/5 p-8 text-center md:h-64">
