@@ -1,0 +1,38 @@
+# HolaThrift
+
+HolaThrift is a single page thrift storefront for curated rare vintage and streetwear drops in India.
+
+## Canonical Site
+
+https://holathrift.in
+
+## What Users Can Do
+
+- Browse product archives.
+- Search and filter by category and size.
+- Open product details.
+- Add available items to a bag.
+- Save favorite items to an account wishlist.
+- Save a default delivery address.
+- Checkout through Cashfree.
+- Track delivery updates through Shiprocket after purchase.
+
+## Admin Capabilities
+
+- Admin access is based on server-side email authorization.
+- Admins can create, edit, upload images for, mark sold, and delete products.
+- Products are loaded from MongoDB. There are no hardcoded product seeds.
+
+## API Overview
+
+- `/api/auth` handles signup, login, OTP verification, and session lookup.
+- `/api/products` handles public product reads and admin product management.
+- `/api/orders` handles reservation, Cashfree payment verification, Shiprocket order creation, serviceability checks, tracking, and order history.
+- `/api/user` handles profile updates, saved address, password changes, email changes, and wishlist.
+
+## Important Notes
+
+- Real secrets belong in `.env` and are ignored by git.
+- `.env.example` lists required configuration keys.
+- Cashfree and Shiprocket calls require production credentials before real checkout and delivery can work.
+- The landing page includes a lazy-loaded Three.js scene.

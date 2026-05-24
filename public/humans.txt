@@ -1,0 +1,17 @@
+HolaThrift
+
+Site: https://holathrift.in
+Purpose: Curated rare vintage and streetwear drops in India.
+
+Team
+Builder: nirusaki-malaal
+
+Technology
+Frontend: React, TypeScript, Vite, Tailwind CSS, Three.js
+Backend: Express, MongoDB, Redis
+Payments: Cashfree
+Shipping: Shiprocket
+
+Standards
+Language: English
+Timezone: Asia/Kolkata
