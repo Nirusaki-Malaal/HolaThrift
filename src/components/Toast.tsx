@@ -15,17 +15,17 @@ function ToastItem({ toast, onRemove }: { toast: ToastData; onRemove: (id: strin
 
   const icons = { success: Check, error: AlertCircle, info: Info };
   const colors = {
-    success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
-    error: 'border-red-500/30 bg-red-500/10 text-red-400',
-    info: 'border-purple-500/30 bg-purple-500/10 text-purple-400',
+    success: 'border-emerald-400/30 text-emerald-200 shadow-emerald-950/30',
+    error: 'border-red-400/30 text-red-200 shadow-red-950/30',
+    info: 'border-purple-400/30 text-purple-200 shadow-purple-950/30',
   };
   const Icon = icons[toast.type];
 
   return (
-    <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-xl shadow-2xl ${colors[toast.type]} animate-slide-up min-w-[280px] max-w-sm`}>
+    <div className={`flex min-w-[280px] max-w-sm items-center gap-3 rounded-xl border bg-[#08080a]/95 px-5 py-3.5 shadow-2xl backdrop-blur-xl ${colors[toast.type]} animate-slide-up`}>
       <Icon size={16} className="shrink-0" />
-      <span className="text-xs font-bold uppercase tracking-wider flex-1">{toast.message}</span>
-      <button onClick={() => onRemove(toast.id)} className="text-white/40 hover:text-white transition-colors cursor-pointer shrink-0">
+      <span className="flex-1 text-xs font-bold uppercase tracking-wider">{toast.message}</span>
+      <button onClick={() => onRemove(toast.id)} className="shrink-0 cursor-pointer text-white/45 transition-colors hover:text-white">
         <X size={14} />
       </button>
     </div>
