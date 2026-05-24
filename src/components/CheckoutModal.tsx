@@ -41,6 +41,11 @@ export default function CheckoutModal({
   const [stage, setStage] = useState('');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  const [cashfreeMode, setCashfreeMode] = useState<'sandbox' | 'production'>('production');
+  const [orderReference, setOrderReference] = useState('');
+  const [reservationExpiresAt, setReservationExpiresAt] = useState('');
+  const [deliveryCheck, setDeliveryCheck] = useState<{ serviceable: boolean; courierName: string; estimatedDays: string } | null>(null);
+  const [checkingDelivery, setCheckingDelivery] = useState<boolean>(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -55,6 +60,9 @@ export default function CheckoutModal({
     setSaveAddress(true);
     setStep('address');
     setError('');
+    setOrderReference('');
+    setReservationExpiresAt('');
+    setDeliveryCheck(null);
 
     const loadSavedAddress = async (): Promise<void> => {
       const token = getCookie('auth_token');
@@ -81,6 +89,36 @@ export default function CheckoutModal({
 
     loadSavedAddress();
   }, [isOpen, user]);
+
+  useEffect(() => {
+    if (!isOpen || pincode.length !== 6) {
+      setDeliveryCheck(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      setCheckingDelivery(true);
+      try {
+        const res = await fetch(`/api/orders/serviceability/${pincode}`);
+        if (!res.ok) {
+          setDeliveryCheck(null);
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) setDeliveryCheck(data);
+      } catch {
+        if (!cancelled) setDeliveryCheck(null);
+      } finally {
+        if (!cancelled) setCheckingDelivery(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [isOpen, pincode]);
 
   if (!isOpen) return null;
 
@@ -109,6 +147,10 @@ export default function CheckoutModal({
     }
     if (pincode.replace(/\D/g, '').length < 6) {
       setError('Please enter a valid 6-digit PIN code');
+      return;
+    }
+    if (deliveryCheck && !deliveryCheck.serviceable) {
+      setError('Shiprocket does not currently mark this PIN code as serviceable');
       return;
     }
 
@@ -166,20 +208,31 @@ export default function CheckoutModal({
       }
 
       const { paymentSessionId, cashfreeOrderId } = data;
+      const reservedItems = Array.isArray(data.items) ? data.items : items;
+      const mode = data.cashfreeMode === 'sandbox' ? 'sandbox' : 'production';
+      setCashfreeMode(mode);
+      setOrderReference(cashfreeOrderId);
+      setReservationExpiresAt(data.reservationExpiresAt || '');
 
       setStage('Loading secure payment portal...');
       setProgress(50);
       await loadCashfreeScript();
 
-      const cashfree = window.Cashfree({ mode: 'production' });
+      const cashfree = window.Cashfree({ mode });
 
       setStage('Completing checkout session...');
       setProgress(80);
 
-      await cashfree.checkout({
+      const checkoutResult = await cashfree.checkout({
         paymentSessionId,
         redirectTarget: '_modal',
       });
+
+      if (checkoutResult?.error) {
+        setError(checkoutResult.error.message || 'Payment was not completed');
+        setStep('address');
+        return;
+      }
 
       setStage('Verifying payment confirmation...');
       setProgress(90);
@@ -193,8 +246,7 @@ export default function CheckoutModal({
         body: JSON.stringify({
           cashfreeOrderId,
           shippingAddress,
-          items,
-          total,
+          items: reservedItems,
         }),
       });
 
@@ -232,6 +284,9 @@ export default function CheckoutModal({
               </h2>
               <p className="text-neutral-400 text-xs mt-1 font-mono uppercase tracking-widest">
                 Amount Due: <span className="text-white font-sans font-bold">₹{total}</span>
+              </p>
+              <p className="text-neutral-600 text-[9px] mt-2 font-mono uppercase tracking-widest">
+                Cashfree secure checkout · Shiprocket delivery
               </p>
             </div>
 
@@ -282,6 +337,22 @@ export default function CheckoutModal({
                   className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
                 />
               </div>
+
+              {(checkingDelivery || deliveryCheck) && (
+                <div className={`rounded-xl border px-4 py-3 text-[10px] font-mono uppercase tracking-widest ${
+                  deliveryCheck?.serviceable
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                    : deliveryCheck
+                      ? 'border-red-500/20 bg-red-500/10 text-red-400'
+                      : 'border-white/5 bg-[#050505] text-neutral-500'
+                }`}>
+                  {checkingDelivery
+                    ? 'Checking Shiprocket serviceability...'
+                    : deliveryCheck?.serviceable
+                      ? `Serviceable via ${deliveryCheck.courierName || 'Shiprocket'}${deliveryCheck.estimatedDays ? ` · ETA ${deliveryCheck.estimatedDays}` : ''}`
+                      : 'Shiprocket serviceability could not be confirmed'}
+                </div>
+              )}
 
               <input
                 required
@@ -352,6 +423,11 @@ export default function CheckoutModal({
             <p className="text-purple-400 font-mono text-[10px] uppercase tracking-widest animate-pulse leading-relaxed">
               {stage}
             </p>
+            <div className="mt-5 space-y-1 font-mono text-[9px] uppercase tracking-widest text-neutral-500">
+              {orderReference && <p>Order Ref: <span className="text-neutral-300">{orderReference}</span></p>}
+              <p>Cashfree Mode: <span className="text-neutral-300">{cashfreeMode}</span></p>
+              {reservationExpiresAt && <p>Reservation Held Until: <span className="text-neutral-300">{new Date(reservationExpiresAt).toLocaleTimeString()}</span></p>}
+            </div>
           </div>
         )}
 
@@ -381,6 +457,12 @@ export default function CheckoutModal({
                 <span>Delivery Service</span>
                 <span className="text-purple-400 font-bold">SHIPROCKET</span>
               </div>
+              {orderReference && (
+                <div className="flex justify-between gap-4">
+                  <span>Order Ref</span>
+                  <span className="text-white font-bold normal-case">{orderReference}</span>
+                </div>
+              )}
             </div>
 
             <button

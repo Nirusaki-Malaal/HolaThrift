@@ -440,6 +440,14 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                         <div className="text-white font-bold text-xs uppercase truncate max-w-xs md:max-w-md">
                           {order.items.map((it: any) => `${it.name} (x${it.quantity})`).join(', ')}
                         </div>
+                        <div className="mt-2 flex flex-wrap gap-2 font-mono text-[8px] font-bold uppercase tracking-widest">
+                          <span className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-400">
+                            {order.paymentProvider || 'Cashfree'} {order.paymentStatus || order.cashfreeOrderStatus || 'Paid'}
+                          </span>
+                          <span className="rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1 text-purple-400">
+                            {order.shippingStatus || order.lastTrackingStatus || 'Processing'}
+                          </span>
+                        </div>
                       </div>
                       <div className="text-right">
                         <span className="text-white font-black text-sm block">₹{order.total}</span>
@@ -452,7 +460,10 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
                             <span className="text-neutral-500 font-mono text-[8px] uppercase tracking-widest">Courier Partner</span>
-                            <span className="text-white text-[10px] font-bold uppercase tracking-wider">Shiprocket Express</span>
+                            <span className="text-white text-[10px] font-bold uppercase tracking-wider">{order.courierName || 'Shiprocket Express'}</span>
+                            {order.estimatedDelivery && (
+                              <span className="text-neutral-500 font-mono text-[8px] uppercase tracking-widest mt-1">ETA {order.estimatedDelivery}</span>
+                            )}
                           </div>
                           <button
                             onClick={() => handleTrackOrder(order.shiprocketShipmentId)}
@@ -470,14 +481,20 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                                 <span>Querying courier server...</span>
                               </div>
                             ) : (() => {
-                              const track = trackingDetails?.tracking_data?.shipment_track?.[0];
+                              const track = trackingDetails?.tracking || trackingDetails;
                               const scans = track?.scans || [];
                               return (
                                 <div className="space-y-4">
                                   <div className="flex justify-between items-center pb-2 border-b border-white/5 font-mono text-[9px] uppercase tracking-widest">
-                                    <span>AWB: {order.awbCode || track?.awb_code || 'Awaiting Sync'}</span>
-                                    <span className="text-purple-400 font-bold">{track?.current_status || 'In Transit'}</span>
+                                    <span>AWB: {track?.awbCode || order.awbCode || 'Awaiting Sync'}</span>
+                                    <span className="text-purple-400 font-bold">{track?.currentStatus || order.lastTrackingStatus || 'In Transit'}</span>
                                   </div>
+                                  {(track?.courierName || track?.estimatedDelivery) && (
+                                    <div className="grid grid-cols-1 gap-2 rounded-xl border border-white/5 bg-[#050505] p-3 font-mono text-[8px] uppercase tracking-widest text-neutral-500 md:grid-cols-2">
+                                      <span>Courier: <span className="text-neutral-300">{track?.courierName || order.courierName || 'Shiprocket'}</span></span>
+                                      <span>ETA: <span className="text-neutral-300">{track?.estimatedDelivery || order.estimatedDelivery || 'Syncing'}</span></span>
+                                    </div>
+                                  )}
                                   {scans.length > 0 ? (
                                     <div className="relative pl-4 border-l border-white/10 space-y-4 my-2">
                                       {scans.map((scan: any, idx: number) => (

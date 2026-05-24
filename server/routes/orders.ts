@@ -2,16 +2,38 @@ import { Router, Request, Response } from 'express';
 import Order from '../models/Order';
 import Product from '../models/Product';
 import { cacheSession, getCachedSession, deleteCachedSession, acquireLock, releaseLock, redisClient } from '../services/redis';
-import { createCashfreeOrder, verifyCashfreePayment } from '../services/cashfree';
-import { createShiprocketOrder, trackShipment } from '../services/shiprocket';
+import { createCashfreeOrder, getCashfreeMode, verifyCashfreePayment } from '../services/cashfree';
+import { checkServiceability, createShiprocketOrder, trackAwb, trackShipment } from '../services/shiprocket';
+import { getRequestSession } from '../utils/auth';
 
 const router = Router();
 
-const getSessionUser = async (req: Request): Promise<any | null> => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.split(' ')[1];
-  return await getCachedSession(`session:${token}`);
+const reservationTtlSeconds = 900;
+
+const getSessionUser = async (req: Request): Promise<any | null> => getRequestSession(req);
+
+const getReservationExpiry = (): string => {
+  return new Date(Date.now() + reservationTtlSeconds * 1000).toISOString();
+};
+
+const getVerifiedItems = async (items: any[]): Promise<{ verifiedItems: any[]; total: number }> => {
+  const verifiedItems = [];
+  let total = 0;
+
+  for (const item of items) {
+    const product = await Product.findById(item.productId);
+    if (!product) throw new Error(`"${item.name || 'Item'}" was not found.`);
+    const quantity = Math.max(1, Number(item.quantity || 1));
+    verifiedItems.push({
+      productId: product._id.toString(),
+      name: product.name,
+      price: product.price,
+      quantity,
+    });
+    total += product.price * quantity;
+  }
+
+  return { verifiedItems, total };
 };
 
 router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
@@ -21,16 +43,18 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const { items, total, shippingAddress } = req.body;
-    if (!items || !total || !shippingAddress) {
+    const { items, shippingAddress } = req.body;
+    if (!Array.isArray(items) || items.length === 0 || !shippingAddress) {
       res.status(400).json({ error: 'Missing reservation details' });
       return;
     }
 
+    const { verifiedItems, total } = await getVerifiedItems(items);
+
     const lockedIds: string[] = [];
     const reservedIds: string[] = [];
 
-    for (const item of items) {
+    for (const item of verifiedItems) {
       const lockKey = `lock:product:${item.productId}`;
       const locked = await acquireLock(lockKey, 5);
       if (!locked) {
@@ -50,11 +74,11 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    for (const item of items) {
+    for (const item of verifiedItems) {
       await Product.findByIdAndUpdate(item.productId, { status: 'reserved' });
       reservedIds.push(item.productId);
       if (redisClient.isOpen) {
-        await redisClient.setEx(`reservation:product:${item.productId}`, 900, '1');
+        await redisClient.setEx(`reservation:product:${item.productId}`, reservationTtlSeconds, '1');
       }
     }
 
@@ -67,8 +91,8 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
     if (redisClient.isOpen) {
       await redisClient.setEx(
         `reservation:order:${cashfreeOrderId}`,
-        900,
-        JSON.stringify(items.map((it: any) => it.productId))
+        reservationTtlSeconds,
+        JSON.stringify(verifiedItems.map((it: any) => it.productId))
       );
     }
 
@@ -85,10 +109,31 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({
       paymentSessionId: cfOrder.payment_session_id,
       cashfreeOrderId,
+      cashfreeMode: getCashfreeMode(),
+      reservationExpiresAt: getReservationExpiry(),
+      orderExpiresAt: cfOrder.order_expiry_time || '',
+      amount: total,
+      items: verifiedItems,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/serviceability/:pincode', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const pincode = String(req.params.pincode).replace(/\D/g, '');
+    if (pincode.length !== 6) {
+      res.status(400).json({ error: 'Valid 6-digit PIN code is required' });
+      return;
+    }
+
+    const data = await checkServiceability(pincode);
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(502).json({ error: 'Delivery serviceability check failed' });
   }
 });
 
@@ -99,11 +144,13 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const { cashfreeOrderId, shippingAddress, items, total } = req.body;
-    if (!cashfreeOrderId || !shippingAddress || !items || !total) {
+    const { cashfreeOrderId, shippingAddress, items } = req.body;
+    if (!cashfreeOrderId || !shippingAddress || !Array.isArray(items) || items.length === 0) {
       res.status(400).json({ error: 'Missing payment details' });
       return;
     }
+
+    const { verifiedItems, total } = await getVerifiedItems(items);
 
     const cfStatus = await verifyCashfreePayment(cashfreeOrderId);
     if (cfStatus.order_status !== 'PAID') {
@@ -113,7 +160,7 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
         if (cachedPids) pids.push(...JSON.parse(cachedPids));
       }
       if (pids.length === 0) {
-        pids.push(...items.map((it: any) => it.productId));
+        pids.push(...verifiedItems.map((it: any) => it.productId));
       }
       for (const pid of pids) {
         await Product.findByIdAndUpdate(pid, { status: 'available' });
@@ -130,7 +177,7 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
     }
 
     const lockedIds: string[] = [];
-    for (const item of items) {
+    for (const item of verifiedItems) {
       const lockKey = `lock:product:${item.productId}`;
       await acquireLock(lockKey, 5);
       lockedIds.push(item.productId);
@@ -148,22 +195,25 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
 
     let srOrder: any = null;
     try {
-      srOrder = await createShiprocketOrder(cashfreeOrderId, Number(total), items, shippingAddress);
+      srOrder = await createShiprocketOrder(cashfreeOrderId, Number(total), verifiedItems, shippingAddress);
     } catch (shippingError) {
       console.error('Shiprocket order creation failed, proceeding to complete order:', shippingError);
     }
 
     const order = new Order({
       userEmail: user.email,
-      items,
+      items: verifiedItems,
       total: Number(total),
       transactionId: cashfreeOrderId,
       shippingAddress,
       cashfreeOrderId,
+      paymentStatus: 'PAID',
+      cashfreeOrderStatus: cfStatus.order_status || 'PAID',
       shiprocketOrderId: srOrder?.order_id?.toString() || '',
       shiprocketShipmentId: srOrder?.shipment_id?.toString() || '',
       awbCode: srOrder?.awb_code || '',
-      shippingStatus: srOrder ? 'Created' : 'Pending Shipment Creation',
+      courierName: srOrder?.courier_name || '',
+      shippingStatus: srOrder ? 'Shipment Created' : 'Pending Shipment Creation',
     });
 
     await order.save();
@@ -184,8 +234,34 @@ router.get('/track/:shipmentId', async (req: Request, res: Response): Promise<vo
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const data = await trackShipment(req.params.shipmentId);
-    res.json(data);
+
+    const order = await Order.findOne({
+      userEmail: user.email,
+      $or: [
+        { shiprocketShipmentId: req.params.shipmentId },
+        { awbCode: req.params.shipmentId },
+      ],
+    });
+
+    if (!order) {
+      res.status(404).json({ error: 'Shipment not found for this account' });
+      return;
+    }
+
+    const data = order.awbCode && req.params.shipmentId === order.awbCode
+      ? await trackAwb(order.awbCode)
+      : await trackShipment(order.shiprocketShipmentId);
+
+    order.awbCode = data.awbCode || order.awbCode;
+    order.courierName = data.courierName || order.courierName;
+    order.estimatedDelivery = data.estimatedDelivery || order.estimatedDelivery;
+    order.lastTrackingStatus = data.currentStatus || order.lastTrackingStatus;
+    order.lastTrackingSyncAt = new Date();
+    order.shippingStatus = data.currentStatus || order.shippingStatus;
+    await order.save();
+    await deleteCachedSession(`orders:${user.email}`);
+
+    res.json({ orderId: order._id, tracking: data });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
