@@ -1,4 +1,5 @@
 import { getEnv } from '../config/env';
+import { fetchWithTimeout, readExternalJson, readExternalText } from '../utils/http';
 import { IntegrationConfigError } from './integrationError';
 
 export type CashfreeMode = 'sandbox' | 'production';
@@ -80,7 +81,7 @@ export const createCashfreeOrder = async (
 ): Promise<CashfreeOrderResponse> => {
   const config = assertCashfreeConfigured();
 
-  const response = await fetch(`${config.baseUrl}/orders`, {
+  const response = await fetchWithTimeout(`${config.baseUrl}/orders`, {
     method: 'POST',
     headers: getHeaders(config),
     body: JSON.stringify({
@@ -103,31 +104,31 @@ export const createCashfreeOrder = async (
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = await readExternalText(response);
     if (response.status === 401 || response.status === 403 || errorText.toLowerCase().includes('authentication')) {
       throw new IntegrationConfigError('Cashfree authentication failed. Check CASHFREE_APP_ID, CASHFREE_SECRET_KEY, and CASHFREE_ENV.');
     }
     throw new Error(`Cashfree order creation failed: ${errorText}`);
   }
 
-  return await response.json();
+  return await readExternalJson<CashfreeOrderResponse>(response);
 };
 
 export const verifyCashfreePayment = async (orderId: string): Promise<CashfreeOrderStatus> => {
   const config = assertCashfreeConfigured();
 
-  const response = await fetch(`${config.baseUrl}/orders/${orderId}`, {
+  const response = await fetchWithTimeout(`${config.baseUrl}/orders/${orderId}`, {
     method: 'GET',
     headers: getHeaders(config),
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = await readExternalText(response);
     if (response.status === 401 || response.status === 403 || errorText.toLowerCase().includes('authentication')) {
       throw new IntegrationConfigError('Cashfree authentication failed. Check CASHFREE_APP_ID, CASHFREE_SECRET_KEY, and CASHFREE_ENV.');
     }
     throw new Error(`Cashfree payment verification failed: ${errorText}`);
   }
 
-  return await response.json();
+  return await readExternalJson<CashfreeOrderStatus>(response);
 };

@@ -1,5 +1,6 @@
 import { redisClient } from './redis';
 import { getEnv } from '../config/env';
+import { fetchWithTimeout, readExternalJson, readExternalText } from '../utils/http';
 import { IntegrationConfigError } from './integrationError';
 
 const baseUrl = 'https://apiv2.shiprocket.in';
@@ -78,22 +79,23 @@ export const getShiprocketToken = async (): Promise<string> => {
     if (cached) return cached;
   }
 
-  const response = await fetch(`${baseUrl}/v1/external/auth/login`, {
+  const response = await fetchWithTimeout(`${baseUrl}/v1/external/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(credentials),
   });
 
   if (!response.ok) {
-    const errText = await response.text();
+    const errText = await readExternalText(response);
     if (response.status === 401 || response.status === 403 || response.status === 422 || errText.toLowerCase().includes('login detail incorrect')) {
       throw new IntegrationConfigError('Shiprocket authentication failed. Check SHIPROCKET_EMAIL and SHIPROCKET_API_KEY.');
     }
     throw new Error(`Shiprocket auth failed: ${errText}`);
   }
 
-  const data = await response.json();
-  const token = data.token;
+  const data = await readExternalJson<{ token?: string }>(response);
+  const token = data?.token;
+  if (!token) throw new Error('Shiprocket auth response did not include a token');
   if (redisClient.isOpen && token) {
     await redisClient.setEx(tokenCacheKey, 828000, token);
   }
@@ -143,7 +145,7 @@ export const createShiprocketOrder = async (
     selling_price: Number(item.price).toString(),
   }));
 
-  const response = await fetch(`${baseUrl}/v1/external/orders/create/adhoc`, {
+  const response = await fetchWithTimeout(`${baseUrl}/v1/external/orders/create/adhoc`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -179,11 +181,11 @@ export const createShiprocketOrder = async (
   });
 
   if (!response.ok) {
-    const errText = await response.text();
+    const errText = await readExternalText(response);
     throw new Error(`Shiprocket order creation failed: ${errText}`);
   }
 
-  return await response.json();
+  return await readExternalJson<Record<string, unknown>>(response);
 };
 
 export const normalizeShiprocketTracking = (data: unknown): NormalizedTracking => {
@@ -210,7 +212,7 @@ export const normalizeShiprocketTracking = (data: unknown): NormalizedTracking =
 
 const fetchTracking = async (endpoint: string): Promise<unknown> => {
   const token = await getShiprocketToken();
-  const response = await fetch(`${baseUrl}${endpoint}`, {
+  const response = await fetchWithTimeout(`${baseUrl}${endpoint}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -219,11 +221,11 @@ const fetchTracking = async (endpoint: string): Promise<unknown> => {
   });
 
   if (!response.ok) {
-    const errText = await response.text();
+    const errText = await readExternalText(response);
     throw new Error(`Shiprocket tracking failed: ${errText}`);
   }
 
-  return await response.json();
+  return await readExternalJson(response);
 };
 
 export const checkServiceability = async (deliveryPincode: string): Promise<ServiceabilityResult> => {
@@ -257,7 +259,7 @@ export const checkServiceability = async (deliveryPincode: string): Promise<Serv
     weight: getPackageNumber('SHIPROCKET_PACKAGE_WEIGHT_KG', 0.5).toString(),
   });
 
-  const response = await fetch(`${baseUrl}/v1/external/courier/serviceability/?${params.toString()}`, {
+  const response = await fetchWithTimeout(`${baseUrl}/v1/external/courier/serviceability/?${params.toString()}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -266,11 +268,11 @@ export const checkServiceability = async (deliveryPincode: string): Promise<Serv
   });
 
   if (!response.ok) {
-    const errText = await response.text();
+    const errText = await readExternalText(response);
     throw new Error(`Shiprocket serviceability failed: ${errText}`);
   }
 
-  const data = await response.json();
+  const data = await readExternalJson(response);
   const root = asRecord(data);
   const serviceData = asRecord(root.data);
   const couriers = asRecordArray(serviceData.available_courier_companies);
