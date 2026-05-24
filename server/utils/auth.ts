@@ -21,6 +21,7 @@ export type UserLike = {
   email?: unknown;
   phone?: unknown;
   name?: unknown;
+  isAdmin?: unknown;
 };
 
 const createJwtSecret = (): string => {
@@ -51,7 +52,7 @@ export const toUserSession = (user: UserLike): UserSession => {
     email,
     phone: String(user.phone || ''),
     ...(name ? { name } : {}),
-    isAdmin: isAdminEmail(email),
+    isAdmin: Boolean(user.isAdmin) || isAdminEmail(email),
   };
 };
 
@@ -67,7 +68,7 @@ const normalizeSession = (session: unknown): UserSession | null => {
     email,
     phone: String(value.phone || ''),
     ...(name ? { name } : {}),
-    isAdmin: isAdminEmail(email),
+    isAdmin: Boolean(value.isAdmin) || isAdminEmail(email),
   };
 };
 

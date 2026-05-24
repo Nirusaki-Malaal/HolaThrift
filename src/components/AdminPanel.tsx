@@ -16,7 +16,7 @@ import {
 } from './admin/form';
 import { getStockCount } from '@/utils/inventory';
 import type { ProductFormValues, ProductItem } from './admin/types';
-import type { OrderRecord } from '@/types/order';
+import type { OrderAdminUpdate, OrderRecord } from '@/types/order';
 import type { AdminEmailPayload, AdminEmailUser } from './admin/AdminEmailPanel';
 import type { AdminUserRecord, AdminUserUpdate } from './admin/AdminUsersPanel';
 
@@ -29,6 +29,7 @@ export default function AdminPanel(): React.JSX.Element {
   const [emailUsers, setEmailUsers] = useState<AdminEmailUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [orderSavingId, setOrderSavingId] = useState<string>('');
   const [adminUsersLoading, setAdminUsersLoading] = useState<boolean>(true);
   const [userSavingId, setUserSavingId] = useState<string>('');
   const [emailUsersLoading, setEmailUsersLoading] = useState<boolean>(true);
@@ -398,6 +399,66 @@ export default function AdminPanel(): React.JSX.Element {
     }
   };
 
+  const handleOrderUpdate = async (id: string, values: OrderAdminUpdate): Promise<void> => {
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Admin session expired. Please sign in again.');
+      return;
+    }
+
+    setError('');
+    setOrderSavingId(id);
+    try {
+      const response = await fetch(`/api/orders/admin/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(values),
+      });
+      const data = await readJson<OrderRecord>(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to update order'));
+      setOrders((currentOrders) => currentOrders.map((order) => order._id === id ? data : order));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Order update failed';
+      setError(message);
+      if (err instanceof Error) throw err;
+      throw new Error(message, { cause: err });
+    } finally {
+      setOrderSavingId('');
+    }
+  };
+
+  const handleAdminToggle = async (id: string, isAdmin: boolean): Promise<void> => {
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Admin session expired. Please sign in again.');
+      return;
+    }
+
+    setError('');
+    setUserSavingId(id);
+    try {
+      const response = await fetch(`/api/user/admin/users/${id}/admin`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isAdmin }),
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to update admin access'));
+      await fetchAdminUsers();
+      await fetchEmailUsers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Admin access update failed');
+    } finally {
+      setUserSavingId('');
+    }
+  };
+
   const handleUserDelete = async (id: string): Promise<void> => {
     if (!window.confirm('Delete this user account? Orders will stay visible for admin records.')) return;
     const token = getCookie('auth_token');
@@ -524,7 +585,7 @@ export default function AdminPanel(): React.JSX.Element {
           </p>
         </div>
       ) : (
-        <AdminOrdersTable orders={orders} />
+        <AdminOrdersTable orders={orders} savingId={orderSavingId} onUpdate={handleOrderUpdate} />
       ))}
 
       {activeView === 'emails' && (
@@ -546,6 +607,7 @@ export default function AdminPanel(): React.JSX.Element {
           savingId={userSavingId}
           onUpdate={handleUserUpdate}
           onDelete={handleUserDelete}
+          onAdminToggle={handleAdminToggle}
         />
       )}
 

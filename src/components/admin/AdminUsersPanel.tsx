@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Edit2, Search, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { Edit2, Search, ShieldCheck, ShieldOff, Trash2, UserRound } from 'lucide-react';
 
 export interface AdminUserRecord {
   _id: string;
@@ -8,6 +8,7 @@ export interface AdminUserRecord {
   name?: string;
   createdAt?: string;
   isAdmin?: boolean;
+  isConfiguredAdmin?: boolean;
   wishlistCount?: number;
   orderCount?: number;
   totalSpend?: number;
@@ -31,6 +32,7 @@ interface AdminUsersPanelProps {
   readonly savingId: string;
   readonly onUpdate: (id: string, values: AdminUserUpdate) => void;
   readonly onDelete: (id: string) => void;
+  readonly onAdminToggle: (id: string, isAdmin: boolean) => void;
 }
 
 const formatDate = (value?: string | null): string => {
@@ -40,7 +42,7 @@ const formatDate = (value?: string | null): string => {
   return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-export default function AdminUsersPanel({ users, loading, savingId, onUpdate, onDelete }: AdminUsersPanelProps): React.JSX.Element {
+export default function AdminUsersPanel({ users, loading, savingId, onUpdate, onDelete, onAdminToggle }: AdminUsersPanelProps): React.JSX.Element {
   const [query, setQuery] = useState<string>('');
   const [editingUser, setEditingUser] = useState<AdminUserRecord | null>(null);
   const [formValues, setFormValues] = useState<AdminUserUpdate>({ name: '', email: '', phone: '' });
@@ -118,6 +120,7 @@ export default function AdminUsersPanel({ users, loading, savingId, onUpdate, on
                       {user.isAdmin && <ShieldCheck size={13} className="text-emerald-400" />}
                     </span>
                     <span className="mt-1 block break-all font-mono text-[9px] text-neutral-500">{user.email}</span>
+                    {user.isConfiguredAdmin && <span className="mt-2 inline-flex rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 font-mono text-[8px] font-black text-emerald-300">Configured Admin</span>}
                   </td>
                   <td className="p-5 font-mono text-[9px] text-neutral-400">{user.phone || 'No phone'}</td>
                   <td className="p-5 font-mono text-[9px] text-neutral-400">
@@ -134,6 +137,15 @@ export default function AdminUsersPanel({ users, loading, savingId, onUpdate, on
                   </td>
                   <td className="p-5 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onAdminToggle(user._id, !user.isAdmin)}
+                        disabled={Boolean(savingId) || Boolean(user.isConfiguredAdmin && user.isAdmin)}
+                        className="rounded-lg border border-emerald-500/10 bg-emerald-500/10 p-2 text-emerald-400 transition-colors hover:bg-emerald-500 hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label={user.isAdmin ? `Remove admin access for ${user.email}` : `Grant admin access to ${user.email}`}
+                      >
+                        {user.isAdmin ? <ShieldOff size={12} /> : <ShieldCheck size={12} />}
+                      </button>
                       <button
                         type="button"
                         onClick={() => openEdit(user)}

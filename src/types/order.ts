@@ -36,10 +36,27 @@ export interface OrderRecord {
   awbCode?: string;
   courierName?: string;
   estimatedDelivery?: string;
+  adminNote?: string;
+  adminUpdatedAt?: string;
+  adminUpdatedBy?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
   invoiceUrl?: string;
   invoicePublicId?: string;
   invoiceGeneratedAt?: string;
   invoiceEmailSentAt?: string;
+}
+
+export interface OrderAdminUpdate {
+  status: string;
+  paymentStatus: string;
+  shippingStatus: string;
+  courierName: string;
+  awbCode: string;
+  estimatedDelivery: string;
+  adminNote: string;
+  cancellationReason: string;
 }
 
 export interface TrackingScan {

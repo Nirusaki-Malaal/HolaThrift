@@ -39,6 +39,12 @@ const orderSchema = new Schema({
   lastTrackingStatus: { type: String },
   lastTrackingSyncAt: { type: Date },
   shippingStatus: { type: String, default: 'Created' },
+  adminNote: { type: String },
+  adminUpdatedAt: { type: Date },
+  adminUpdatedBy: { type: String },
+  cancellationReason: { type: String },
+  cancelledAt: { type: Date },
+  cancelledBy: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 

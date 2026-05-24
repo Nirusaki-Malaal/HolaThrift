@@ -87,7 +87,7 @@ router.get('/admin/users', async (req: Request, res: Response): Promise<void> =>
   try {
     if (!await getAdminAccess(req, res)) return;
     const users = await User.find({})
-      .select('email phone name defaultAddress wishlist createdAt')
+      .select('email phone name isAdmin defaultAddress wishlist createdAt')
       .sort({ createdAt: -1 })
       .lean();
     const orderStats = await Order.aggregate([
@@ -113,7 +113,8 @@ router.get('/admin/users', async (req: Request, res: Response): Promise<void> =>
         defaultAddress: user.defaultAddress,
         wishlistCount: Array.isArray(user.wishlist) ? user.wishlist.length : 0,
         createdAt: user.createdAt,
-        isAdmin: isAdminEmail(email),
+        isAdmin: Boolean(user.isAdmin) || isAdminEmail(email),
+        isConfiguredAdmin: isAdminEmail(email),
         orderCount: Number(stats?.orderCount || 0),
         totalSpend: Number(stats?.totalSpend || 0),
         lastOrderAt: stats?.lastOrderAt || null,
@@ -170,6 +171,55 @@ router.patch('/admin/users/:id', adminMutationRateLimit, async (req: Request, re
     }
     await deleteCachedSession(`orders:${email}`);
     res.json({ message: 'User updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/admin/users/:id/admin', adminMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const session = await getRequestSession(req);
+    if (!session?.isAdmin) {
+      res.status(403).json({ error: 'Unauthorized admin access required' });
+      return;
+    }
+    if (!isValidObjectId(req.params.id)) {
+      res.status(400).json({ error: 'Valid user id is required' });
+      return;
+    }
+    if (typeof req.body?.isAdmin !== 'boolean') {
+      res.status(400).json({ error: 'Admin access value is required' });
+      return;
+    }
+
+    const nextIsAdmin = req.body.isAdmin;
+    if (session.id === req.params.id && !nextIsAdmin) {
+      res.status(400).json({ error: 'Admins cannot remove their own active admin access' });
+      return;
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const configuredAdmin = isAdminEmail(user.email);
+    if (configuredAdmin && !nextIsAdmin) {
+      res.status(400).json({ error: 'Configured admin emails cannot be demoted from the panel' });
+      return;
+    }
+
+    user.set('isAdmin', nextIsAdmin);
+    await user.save();
+
+    const email = String(user.email || '').toLowerCase();
+    res.json({
+      message: nextIsAdmin ? 'Admin access granted' : 'Admin access removed',
+      isAdmin: Boolean(user.get('isAdmin')) || isAdminEmail(email),
+      isConfiguredAdmin: isAdminEmail(email),
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });

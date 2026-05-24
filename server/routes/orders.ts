@@ -10,7 +10,7 @@ import { sendOrderInvoiceEmail } from '../services/mail';
 import { isIntegrationConfigError } from '../services/integrationError';
 import { getRequestSession, isAdminRequest } from '../utils/auth';
 import { cleanEmail, cleanLongText, cleanPhone, cleanText, isRecord, isValidEmail, isValidObjectId } from '../utils/validation';
-import { checkoutRateLimit, serviceabilityRateLimit, trackingRateLimit } from '../middleware/rateLimits';
+import { adminMutationRateLimit, checkoutRateLimit, serviceabilityRateLimit, trackingRateLimit } from '../middleware/rateLimits';
 import type { UserSession } from '../utils/auth';
 
 const router = Router();
@@ -19,6 +19,8 @@ const reservationTtlSeconds = 900;
 const maxOrderItems = 20;
 const maxOrderQuantity = 20;
 const cashfreeOrderIdPattern = /^HT_\d{13}_[A-Z0-9]{4}$/;
+const orderStatuses = new Set(['completed', 'processing', 'cancelled', 'on-hold']);
+const paymentStatuses = new Set(['PAID', 'PENDING', 'FAILED', 'CANCELLED', 'REFUND_PENDING', 'REFUNDED']);
 
 interface IncomingOrderItem {
   productId: string;
@@ -54,6 +56,17 @@ interface ShippingAddress {
   city: string;
   state: string;
   pincode: string;
+}
+
+interface AdminOrderUpdate {
+  status?: string;
+  paymentStatus?: string;
+  shippingStatus?: string;
+  courierName?: string;
+  awbCode?: string;
+  estimatedDelivery?: string;
+  adminNote?: string;
+  cancellationReason?: string;
 }
 
 const getSessionUser = async (req: Request): Promise<UserSession | null> => getRequestSession(req);
@@ -182,6 +195,34 @@ const completePaidReservation = async (item: VerifiedOrderItem): Promise<void> =
   if (redisClient.isOpen && inventory.reservedStock <= 0) {
     await redisClient.del(`reservation:product:${item.productId}`);
   }
+};
+
+const normalizeAdminOrderUpdate = (body: unknown): AdminOrderUpdate => {
+  if (!isRecord(body)) throw new RequestValidationError('Order update details are required.');
+
+  const update: AdminOrderUpdate = {};
+
+  if ('status' in body) {
+    const status = cleanText(body.status, 32).toLowerCase();
+    if (!orderStatuses.has(status)) throw new RequestValidationError('Invalid order status.');
+    update.status = status;
+  }
+
+  if ('paymentStatus' in body) {
+    const paymentStatus = cleanText(body.paymentStatus, 32).toUpperCase().replace(/\s+/g, '_');
+    if (!paymentStatuses.has(paymentStatus)) throw new RequestValidationError('Invalid payment status.');
+    update.paymentStatus = paymentStatus;
+  }
+
+  if ('shippingStatus' in body) update.shippingStatus = cleanText(body.shippingStatus, 80);
+  if ('courierName' in body) update.courierName = cleanText(body.courierName, 80);
+  if ('awbCode' in body) update.awbCode = cleanText(body.awbCode, 80);
+  if ('estimatedDelivery' in body) update.estimatedDelivery = cleanText(body.estimatedDelivery, 80);
+  if ('adminNote' in body) update.adminNote = cleanLongText(body.adminNote, 800);
+  if ('cancellationReason' in body) update.cancellationReason = cleanLongText(body.cancellationReason, 500);
+
+  if (Object.keys(update).length === 0) throw new RequestValidationError('At least one order field is required.');
+  return update;
 };
 
 const sendErrorResponse = (res: Response, error: unknown): void => {
@@ -522,6 +563,51 @@ router.get('/admin', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/admin/:id', adminMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const session = await getRequestSession(req);
+    if (!session?.isAdmin) {
+      res.status(403).json({ error: 'Unauthorized admin access required' });
+      return;
+    }
+    if (!isValidObjectId(req.params.id)) {
+      res.status(400).json({ error: 'Valid order id is required' });
+      return;
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const update = normalizeAdminOrderUpdate(req.body);
+    if (update.status === 'cancelled') {
+      const cancellationReason = update.cancellationReason || cleanLongText(order.cancellationReason, 500);
+      if (!cancellationReason) {
+        res.status(400).json({ error: 'Cancellation reason is required' });
+        return;
+      }
+      update.cancellationReason = cancellationReason;
+      update.shippingStatus = 'Cancelled';
+      order.set('cancelledAt', new Date());
+      order.set('cancelledBy', session.email);
+    }
+
+    order.set({
+      ...update,
+      adminUpdatedAt: new Date(),
+      adminUpdatedBy: session.email,
+    });
+    await order.save();
+    await deleteCachedSession(`orders:${order.userEmail}`);
+    res.json(order);
+  } catch (error) {
+    if (shouldLogError(error)) console.error(error);
+    sendErrorResponse(res, error);
   }
 });
 
