@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, MapPin, Package, Truck } from 'lucide-react';
+import { CreditCard, FileText, MapPin, Package, Truck } from 'lucide-react';
 import OrderTravelProgress from './OrderTravelProgress';
 import type { OrderRecord, TrackingPayload } from '@/types/order';
 
@@ -84,6 +84,11 @@ export default function OrderDetailsPanel({ order, tracking }: OrderDetailsPanel
             <span>Provider: <span className="text-neutral-300">{order.paymentProvider || 'Cashfree'}</span></span>
             <span>Status: <span className="text-emerald-400">{order.paymentStatus || order.cashfreeOrderStatus || 'Paid'}</span></span>
             <span>Placed: <span className="text-neutral-300">{new Date(order.createdAt).toLocaleString()}</span></span>
+            {order.invoiceUrl && (
+              <a href={order.invoiceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-purple-300 hover:text-white">
+                <FileText size={12} /> Invoice JPG
+              </a>
+            )}
           </div>
         </section>
 

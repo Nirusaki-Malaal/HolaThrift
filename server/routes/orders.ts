@@ -5,6 +5,7 @@ import { cacheSession, getCachedSession, deleteCachedSession, acquireLock, relea
 import { createCashfreeOrder, getCashfreeMode, isCashfreeConfigured, verifyCashfreePayment } from '../services/cashfree';
 import { checkServiceability, createShiprocketOrder, trackAwb, trackShipment } from '../services/shiprocket';
 import { getAvailableStockCount, getReservedStockCount, getStockCount, normalizeInventory } from '../services/inventory';
+import { createAndUploadInvoice } from '../services/invoice';
 import { isIntegrationConfigError } from '../services/integrationError';
 import { getRequestSession, isAdminRequest } from '../utils/auth';
 import type { UserSession } from '../utils/auth';
@@ -339,6 +340,19 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
     });
 
     await order.save();
+    try {
+      const invoice = await createAndUploadInvoice(order.toObject());
+      order.invoiceUrl = invoice.invoiceUrl;
+      order.invoicePublicId = invoice.invoicePublicId;
+      order.invoiceGeneratedAt = new Date();
+      await order.save();
+    } catch (invoiceError) {
+      if (isIntegrationConfigError(invoiceError)) {
+        console.warn(invoiceError.message);
+      } else {
+        console.error('Invoice generation failed:', invoiceError);
+      }
+    }
     await deleteCachedSession(`orders:${user.email}`);
     await deleteCachedSession('products:all');
 

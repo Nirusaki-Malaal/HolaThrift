@@ -1,5 +1,5 @@
 import React from 'react';
-import { IndianRupee, Mail, MapPin, Phone, Truck } from 'lucide-react';
+import { FileText, IndianRupee, Mail, MapPin, Phone, Truck } from 'lucide-react';
 import type { OrderRecord } from '@/types/order';
 
 interface AdminOrdersTableProps {
@@ -95,6 +95,11 @@ export default function AdminOrdersTable({ orders }: AdminOrdersTableProps): Rea
                     {order.cashfreeOrderId && <span className="block">Cashfree {order.cashfreeOrderId}</span>}
                     {order.shiprocketOrderId && <span className="block">Shiprocket {order.shiprocketOrderId}</span>}
                     {order.shiprocketShipmentId && <span className="block">Shipment {order.shiprocketShipmentId}</span>}
+                    {order.invoiceUrl && (
+                      <a href={order.invoiceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-purple-300 hover:text-white">
+                        <FileText size={10} /> Invoice JPG
+                      </a>
+                    )}
                   </td>
                 </tr>
               );

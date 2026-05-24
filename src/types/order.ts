@@ -36,6 +36,9 @@ export interface OrderRecord {
   awbCode?: string;
   courierName?: string;
   estimatedDelivery?: string;
+  invoiceUrl?: string;
+  invoicePublicId?: string;
+  invoiceGeneratedAt?: string;
 }
 
 export interface TrackingScan {
