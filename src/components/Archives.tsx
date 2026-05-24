@@ -251,8 +251,8 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
         </button>
       </div>
 
-      <div className="motion-panel mb-5 grid grid-cols-2 gap-3 rounded-lg border border-white/5 bg-[#0b0b0b]/75 p-3 shadow-[0_16px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl md:mb-8 md:grid-cols-4 md:p-4 lg:grid-cols-[minmax(18rem,1fr)_repeat(4,minmax(8rem,10rem))] lg:items-center">
-        <div className="relative col-span-2 md:col-span-4 lg:col-span-1">
+      <div className="motion-panel mb-5 grid grid-cols-2 gap-3 rounded-lg border border-white/5 bg-[#0b0b0b]/75 p-3 shadow-[0_16px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl md:mb-8 md:grid-cols-4 md:p-4 lg:grid-cols-[minmax(14rem,1fr)_repeat(4,minmax(0,9.5rem))] lg:items-center xl:grid-cols-[minmax(18rem,1fr)_repeat(4,minmax(9rem,10.5rem))]">
+        <div className="relative col-span-2 min-w-0 md:col-span-4 lg:col-span-1">
           <Search className="absolute left-4 top-3.5 text-neutral-500 md:top-4" size={16} />
           <input
             type="text"
@@ -268,7 +268,7 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
           )}
         </div>
 
-        <label className="relative min-w-0">
+        <label className="relative min-w-0 overflow-hidden">
           <span className="sr-only">Category</span>
           <SlidersHorizontal className="pointer-events-none absolute left-3 top-3.5 text-neutral-500" size={14} />
           <select
@@ -283,7 +283,7 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
           </select>
         </label>
 
-        <label className="relative min-w-0">
+        <label className="relative min-w-0 overflow-hidden">
           <span className="sr-only">Size</span>
           <select
             value={selectedSize}
@@ -297,7 +297,7 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
           </select>
         </label>
 
-        <label className="relative min-w-0">
+        <label className="relative min-w-0 overflow-hidden">
           <span className="sr-only">Availability</span>
           <select
             value={selectedAvailability}
@@ -310,7 +310,7 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
           </select>
         </label>
 
-        <label className="relative min-w-0">
+        <label className="relative min-w-0 overflow-hidden">
           <span className="sr-only">Sort</span>
           <select
             value={selectedSort}
