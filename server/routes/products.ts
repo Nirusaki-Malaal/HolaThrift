@@ -2,8 +2,12 @@ import { Router, Request, Response } from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
+import jwt from 'jsonwebtoken';
 import Product from '../models/Product';
+import User from '../models/User';
 import { cacheSession, getCachedSession, deleteCachedSession, redisClient } from '../services/redis';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key';
 
 const router = Router();
 
@@ -19,9 +23,20 @@ const checkAdmin = async (req: Request): Promise<boolean> => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.split(' ')[1];
-  const session = await getCachedSession(`session:${token}`);
-  if (!session) return false;
-  return ADMIN_EMAILS.includes(session.email.toLowerCase());
+  try {
+    let session = await getCachedSession(`session:${token}`);
+    if (!session) {
+      const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+      const user = await User.findById(decoded.id);
+      if (!user) return false;
+      session = { id: user._id, email: user.email, phone: user.phone };
+      await cacheSession(`session:${token}`, session);
+    }
+    return ADMIN_EMAILS.includes(session.email.toLowerCase());
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
 };
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
