@@ -8,6 +8,8 @@ import ReturnPolicy from '@/components/ReturnPolicy';
 import TermsAndConditions from '@/components/TermsAndConditions';
 import AuthModal from '@/components/AuthModal';
 import Archives from '@/components/Archives';
+import Profile from '@/components/Profile';
+import AdminPanel from '@/components/AdminPanel';
 import { LOADING_MESSAGES } from '@/constants/loading';
 import { getCookie, deleteCookie } from '@/utils/cookies';
 
@@ -101,6 +103,8 @@ export default function Shop(): React.JSX.Element {
       {activePage === 'return' && <ReturnPolicy setActivePage={handlePageChange} />}
       {activePage === 'tnc' && <TermsAndConditions setActivePage={handlePageChange} />}
       {activePage === 'archives' && <Archives user={currentUser} onLogout={handleLogout} />}
+      {activePage === 'profile' && <Profile user={currentUser} onLogout={handleLogout} />}
+      {activePage === 'admin' && currentUser?.email === 'nirusaki3@gmail.com' && <AdminPanel />}
 
       <Footer setActivePage={handlePageChange} />
 

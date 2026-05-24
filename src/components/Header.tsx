@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, User, Menu, X, LogOut } from 'lucide-react';
+import { Sparkles, User, Menu, X } from 'lucide-react';
 
 interface HeaderProps {
   readonly setActivePage: (page: string) => void;
@@ -8,7 +8,7 @@ interface HeaderProps {
   readonly onLogout: () => void;
 }
 
-export default function Header({ setActivePage, onLoginClick, user, onLogout }: HeaderProps): React.JSX.Element {
+export default function Header({ setActivePage, onLoginClick, user }: HeaderProps): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   return (
@@ -22,22 +22,29 @@ export default function Header({ setActivePage, onLoginClick, user, onLogout }: 
         </span>
       </div>
 
-      <div className="hidden md:flex items-center space-x-4">
+      <div className="hidden md:flex items-center space-x-6">
         {user ? (
           <>
             <button
               onClick={() => setActivePage('archives')}
-              className="px-4 py-2 text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
+              className="text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
             >
               ARCHIVES
             </button>
             <button
-              onClick={onLogout}
-              className="flex items-center space-x-2 bg-red-500/10 border border-red-500/30 px-5 py-2.5 rounded-xl text-xs font-black tracking-widest text-red-500 hover:bg-red-500 hover:text-white transition-all duration-300 cursor-pointer"
+              onClick={() => setActivePage('profile')}
+              className="text-neutral-400 hover:text-white text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
             >
-              <LogOut size={14} />
-              <span>REVOKE</span>
+              MY ACCOUNT
             </button>
+            {user.email === 'nirusaki3@gmail.com' && (
+              <button
+                onClick={() => setActivePage('admin')}
+                className="text-purple-400 hover:text-purple-300 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
+              >
+                ADMIN PANEL
+              </button>
+            )}
           </>
         ) : (
           <button
@@ -101,15 +108,25 @@ export default function Header({ setActivePage, onLoginClick, user, onLogout }: 
                 Archives
               </button>
               <button
-                className="flex items-center justify-center space-x-2 bg-red-500/10 border border-red-500/30 text-red-500 py-3.5 rounded-xl font-black text-xs tracking-widest uppercase active:scale-95 transition-all cursor-pointer"
+                className="text-neutral-400 hover:text-white font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
                 onClick={() => {
-                  onLogout();
+                  setActivePage('profile');
                   setIsMobileMenuOpen(false);
                 }}
               >
-                <LogOut size={14} />
-                <span>LOGOUT</span>
+                My Account
               </button>
+              {user.email === 'nirusaki3@gmail.com' && (
+                <button
+                  className="text-purple-400 hover:text-purple-300 font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
+                  onClick={() => {
+                    setActivePage('admin');
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  Admin Panel
+                </button>
+              )}
             </>
           ) : (
             <button
