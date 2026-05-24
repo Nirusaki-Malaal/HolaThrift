@@ -6,7 +6,7 @@ import { createCashfreeOrder, getCashfreeMode, isCashfreeConfigured, verifyCashf
 import { checkServiceability, createShiprocketOrder, trackAwb, trackShipment } from '../services/shiprocket';
 import { getAvailableStockCount, getReservedStockCount, getStockCount, normalizeInventory } from '../services/inventory';
 import { isIntegrationConfigError } from '../services/integrationError';
-import { getRequestSession } from '../utils/auth';
+import { getRequestSession, isAdminRequest } from '../utils/auth';
 import type { UserSession } from '../utils/auth';
 
 const router = Router();
@@ -387,6 +387,22 @@ router.get('/track/:shipmentId', async (req: Request, res: Response): Promise<vo
   } catch (error) {
     if (!isIntegrationConfigError(error)) console.error(error);
     sendErrorResponse(res, error);
+  }
+});
+
+router.get('/admin', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const isadmin = await isAdminRequest(req);
+    if (!isadmin) {
+      res.status(403).json({ error: 'Unauthorized admin access required' });
+      return;
+    }
+
+    const orders = await Order.find({}).sort({ createdAt: -1 }).limit(250).lean();
+    res.json(orders);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

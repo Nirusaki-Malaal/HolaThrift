@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Boxes, ReceiptText } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import AdminHeader from './admin/AdminHeader';
 import AdminInventoryTable from './admin/AdminInventoryTable';
+import AdminOrdersTable from './admin/AdminOrdersTable';
 import ProductFormModal from './admin/ProductFormModal';
 import {
   createEmptyProductForm,
@@ -12,10 +13,16 @@ import {
 } from './admin/form';
 import { getStockCount } from '@/utils/inventory';
 import type { ProductFormValues, ProductItem } from './admin/types';
+import type { OrderRecord } from '@/types/order';
+
+type AdminView = 'inventory' | 'orders';
 
 export default function AdminPanel(): React.JSX.Element {
   const [products, setProducts] = useState<ProductItem[]>([]);
+  const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [activeView, setActiveView] = useState<AdminView>('inventory');
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<ProductFormValues>(createEmptyProductForm);
@@ -37,9 +44,33 @@ export default function AdminPanel(): React.JSX.Element {
     }
   };
 
+  const fetchOrders = async (): Promise<void> => {
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Admin session expired. Please sign in again.');
+      setOrdersLoading(false);
+      return;
+    }
+
+    setOrdersLoading(true);
+    try {
+      const response = await fetch('/api/orders/admin', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load orders');
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Orders could not be loaded');
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       fetchProducts();
+      fetchOrders();
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -151,6 +182,7 @@ export default function AdminPanel(): React.JSX.Element {
       if (!response.ok) throw new Error(data.error || 'Failed to save product record');
       closeModal();
       await fetchProducts();
+      await fetchOrders();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Database save failed');
     } finally {
@@ -182,6 +214,7 @@ export default function AdminPanel(): React.JSX.Element {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to delete product record');
       await fetchProducts();
+      await fetchOrders();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete product record');
     }
@@ -216,6 +249,7 @@ export default function AdminPanel(): React.JSX.Element {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to update stock status');
       await fetchProducts();
+      await fetchOrders();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update stock status');
     }
@@ -225,6 +259,29 @@ export default function AdminPanel(): React.JSX.Element {
     <div className="relative z-10 flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 pt-28 sm:pt-32 pb-20 text-left animate-fade-in">
       <AdminHeader onAddProduct={openCreateModal} />
 
+      <div className="mb-6 flex flex-col gap-3 rounded-lg border border-white/5 bg-[#111]/30 p-2 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => setActiveView('inventory')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeView === 'inventory' ? 'bg-white text-black' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <Boxes size={14} />
+          <span>Inventory</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView('orders')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeView === 'orders' ? 'bg-white text-black' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <ReceiptText size={14} />
+          <span>Placed Orders</span>
+        </button>
+      </div>
+
       {error && !modalOpen && (
         <div className="mb-6 flex items-center gap-3 rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-xs font-bold uppercase tracking-wider text-red-400">
           <AlertCircle size={16} className="shrink-0" />
@@ -232,7 +289,7 @@ export default function AdminPanel(): React.JSX.Element {
         </div>
       )}
 
-      {loading ? (
+      {activeView === 'inventory' && (loading ? (
         <div className="flex h-64 items-center justify-center rounded-lg border border-white/5 bg-[#111]/20">
           <span className="text-center text-[10px] font-mono uppercase tracking-widest text-neutral-500 animate-pulse">
             Retrieving inventory status from database
@@ -260,7 +317,26 @@ export default function AdminPanel(): React.JSX.Element {
           onDelete={handleDeleteClick}
           onToggleStock={handleToggleStock}
         />
-      )}
+      ))}
+
+      {activeView === 'orders' && (ordersLoading ? (
+        <div className="flex h-64 items-center justify-center rounded-lg border border-white/5 bg-[#111]/20">
+          <span className="text-center text-[10px] font-mono uppercase tracking-widest text-neutral-500 animate-pulse">
+            Retrieving placed orders from database
+          </span>
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed border-white/10 p-8 text-center">
+          <span className="mb-2 text-xs font-mono uppercase tracking-widest text-neutral-500">
+            No placed orders found
+          </span>
+          <p className="max-w-sm text-[10px] font-mono uppercase leading-relaxed tracking-widest text-neutral-600">
+            Paid customer orders will appear here with delivery and payment status.
+          </p>
+        </div>
+      ) : (
+        <AdminOrdersTable orders={orders} />
+      ))}
 
       <ProductFormModal
         isOpen={modalOpen}

@@ -19,6 +19,7 @@ export interface OrderRecord {
   _id: string;
   transactionId: string;
   createdAt: string;
+  userEmail?: string;
   items: OrderItem[];
   total: number;
   status?: string;
