@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingBag, Search, X, ArrowRight, AlertCircle, Heart } from 'lucide-react';
+import { ShoppingBag, Search, X, ArrowRight, AlertCircle, Heart, SlidersHorizontal } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import CheckoutModal from './CheckoutModal';
 import ProductDetail from './ProductDetail';
 import CartDrawer from './cart/CartDrawer';
 import { getAvailableStockCount, getStockLabel, isProductOutOfStock } from '@/utils/inventory';
+import { ALL_FILTER_VALUE, getProductFilterOptions, getVisibleProducts } from '@/utils/productFilters';
 import type { CartItem } from '@/types/cart';
 import type { ProductItem } from '@/types/product';
 import type { UserSession } from '@/types/user';
+import type { AvailabilityFilter, ProductSort } from '@/utils/productFilters';
 
 interface ArchivesProps {
   readonly user: UserSession | null;
@@ -19,8 +21,10 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [selectedSize, setSelectedSize] = useState<string>('All');
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_FILTER_VALUE);
+  const [selectedSize, setSelectedSize] = useState<string>(ALL_FILTER_VALUE);
+  const [selectedAvailability, setSelectedAvailability] = useState<AvailabilityFilter>('all');
+  const [selectedSort, setSelectedSort] = useState<ProductSort>('featured');
   const [cart, setCart] = useState<CartItem[]>(() => {
     const storedCart = localStorage.getItem('hola_cart');
     if (!storedCart) return [];
@@ -178,17 +182,13 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
     await fetchProducts(false);
   };
 
-  const categories = ['All', ...new Set(products.map(p => p.category))];
-  const sizes = ['All', ...new Set(products.map(p => p.size))];
-
-  const filteredProducts = products.filter((prod) => {
-    const matchesSearch =
-      prod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      prod.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (prod.description && prod.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'All' || prod.category === selectedCategory;
-    const matchesSize = selectedSize === 'All' || prod.size === selectedSize;
-    return matchesSearch && matchesCategory && matchesSize;
+  const filterOptions = getProductFilterOptions(products);
+  const filteredProducts = getVisibleProducts(products, {
+    searchQuery,
+    category: selectedCategory,
+    size: selectedSize,
+    availability: selectedAvailability,
+    sort: selectedSort,
   });
 
   const availableCount = filteredProducts.reduce((count, product) => count + getAvailableStockCount(product), 0);
@@ -238,36 +238,62 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex bg-[#050505] p-1 rounded-xl border border-white/5">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  selectedCategory === cat ? 'bg-white text-black font-bold' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:flex lg:items-center">
+          <label className="relative">
+            <span className="sr-only">Category</span>
+            <SlidersHorizontal className="pointer-events-none absolute left-3 top-3.5 text-neutral-500" size={14} />
+            <select
+              value={selectedCategory}
+              onChange={(event) => setSelectedCategory(event.target.value)}
+              className="h-11 w-full cursor-pointer rounded-xl border border-white/5 bg-[#050505] pl-9 pr-8 text-[10px] font-black uppercase tracking-widest text-neutral-300 outline-none transition-colors focus:border-purple-500 lg:w-44"
+            >
+              <option value={ALL_FILTER_VALUE}>All Categories</option>
+              {filterOptions.categories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </label>
 
-          <div className="flex bg-[#050505] p-1 rounded-xl border border-white/5">
-            {sizes.map((sz) => (
-              <button
-                key={sz}
-                type="button"
-                onClick={() => setSelectedSize(sz)}
-                className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  selectedSize === sz ? 'bg-white text-black font-bold' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                {sz}
-              </button>
-            ))}
-          </div>
+          <label className="relative">
+            <span className="sr-only">Size</span>
+            <select
+              value={selectedSize}
+              onChange={(event) => setSelectedSize(event.target.value)}
+              className="h-11 w-full cursor-pointer rounded-xl border border-white/5 bg-[#050505] px-3 text-[10px] font-black uppercase tracking-widest text-neutral-300 outline-none transition-colors focus:border-purple-500 lg:w-32"
+            >
+              <option value={ALL_FILTER_VALUE}>All Sizes</option>
+              {filterOptions.sizes.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="relative">
+            <span className="sr-only">Availability</span>
+            <select
+              value={selectedAvailability}
+              onChange={(event) => setSelectedAvailability(event.target.value as AvailabilityFilter)}
+              className="h-11 w-full cursor-pointer rounded-xl border border-white/5 bg-[#050505] px-3 text-[10px] font-black uppercase tracking-widest text-neutral-300 outline-none transition-colors focus:border-purple-500 lg:w-40"
+            >
+              <option value="all">Availability</option>
+              <option value="in-stock">In Stock</option>
+              <option value="out-of-stock">Out Of Stock</option>
+            </select>
+          </label>
+
+          <label className="relative">
+            <span className="sr-only">Sort</span>
+            <select
+              value={selectedSort}
+              onChange={(event) => setSelectedSort(event.target.value as ProductSort)}
+              className="h-11 w-full cursor-pointer rounded-xl border border-white/5 bg-[#050505] px-3 text-[10px] font-black uppercase tracking-widest text-neutral-300 outline-none transition-colors focus:border-purple-500 lg:w-40"
+            >
+              <option value="featured">Featured</option>
+              <option value="newest">Newest</option>
+              <option value="price-low">Price Low</option>
+              <option value="price-high">Price High</option>
+            </select>
+          </label>
         </div>
       </div>
 
