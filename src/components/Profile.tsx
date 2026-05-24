@@ -445,6 +445,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                 const hasShipping = Boolean(trackingId);
                 const isTracking = activeTrackingId === trackingId;
                 const isExpanded = expandedOrderId === order._id;
+                const trackingPayload = isTracking ? getTrackingPayload(trackingDetails) : null;
                 return (
                   <div key={order._id} className="motion-card bg-[#050505] border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all space-y-4">
                     <div className="flex justify-between items-start">
@@ -506,7 +507,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                         </div>
                       </div>
 
-                      {isExpanded && <OrderDetailsPanel order={order} />}
+                      {isExpanded && <OrderDetailsPanel order={order} tracking={trackingPayload} />}
 
                       {isTracking && (
                         <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-4 space-y-3 animate-fade-in text-neutral-400 text-[10px]">
@@ -516,7 +517,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                               <span>Querying courier server...</span>
                             </div>
                           ) : (() => {
-                            const track = getTrackingPayload(trackingDetails);
+                            const track = trackingPayload;
                             const scans: TrackingScan[] = track?.scans || [];
                             return (
                               <div className="space-y-4">

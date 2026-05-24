@@ -1,16 +1,18 @@
 import React from 'react';
 import { CreditCard, MapPin, Package, Truck } from 'lucide-react';
-import type { OrderRecord } from '@/types/order';
+import OrderTravelProgress from './OrderTravelProgress';
+import type { OrderRecord, TrackingPayload } from '@/types/order';
 
 interface OrderDetailsPanelProps {
   readonly order: OrderRecord;
+  readonly tracking?: TrackingPayload | null;
 }
 
 const formatCurrency = (amount: number): string => `₹${amount}`;
 
 const getLineTotal = (price = 0, quantity: number): number => price * quantity;
 
-export default function OrderDetailsPanel({ order }: OrderDetailsPanelProps): React.JSX.Element {
+export default function OrderDetailsPanel({ order, tracking }: OrderDetailsPanelProps): React.JSX.Element {
   const address = order.shippingAddress;
   const references = [
     ['Order Ref', order.transactionId],
@@ -96,6 +98,10 @@ export default function OrderDetailsPanel({ order }: OrderDetailsPanelProps): Re
             {order.estimatedDelivery && <span>ETA: <span className="text-neutral-300">{order.estimatedDelivery}</span></span>}
           </div>
         </section>
+      </div>
+
+      <div className="mt-4">
+        <OrderTravelProgress order={order} tracking={tracking} />
       </div>
 
       {references.length > 0 && (
