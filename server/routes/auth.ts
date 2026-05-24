@@ -4,9 +4,9 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { sendWelcomeEmail, sendOtpEmail, sendLoginOtpEmail } from '../services/mail';
 import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
+import { JWT_SECRET, getBearerToken, getSessionFromToken, toUserSession } from '../utils/auth';
 
 const router = Router();
-const JWT_SECRET = (process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key').replace(/"/g, '');
 
 router.post('/signup', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -70,7 +70,7 @@ router.post('/verify-signup', async (req: Request, res: Response): Promise<void>
     await deleteCachedSession(`signup_otp:${email}`);
 
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
-    const userSession = { id: user._id, email: user.email, phone: user.phone };
+    const userSession = toUserSession(user);
     
     await cacheSession(`session:${token}`, userSession);
     await sendWelcomeEmail(user.email, user.email);
@@ -141,7 +141,7 @@ router.post('/verify-login', async (req: Request, res: Response): Promise<void> 
     await deleteCachedSession(`login_otp:${email}`);
 
     const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
-    const userSession = { id: user._id, email: user.email, phone: user.phone };
+    const userSession = toUserSession(user);
 
     await cacheSession(`session:${token}`, userSession);
 
@@ -154,31 +154,19 @@ router.post('/verify-login', async (req: Request, res: Response): Promise<void> 
 
 router.get('/me', async (req: Request, res: Response): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = getBearerToken(req);
+    if (!token) {
       res.status(401).json({ error: 'No token provided' });
       return;
     }
 
-    const token = authHeader.split(' ')[1];
-    
-    const cached = await getCachedSession(`session:${token}`);
-    if (cached) {
-      res.json(cached);
+    const session = await getSessionFromToken(token);
+    if (!session) {
+      res.status(401).json({ error: 'Invalid token' });
       return;
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-    const user = await User.findById(decoded.id).select('-password');
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    const userSession = { id: user._id, email: user.email, phone: user.phone };
-    await cacheSession(`session:${token}`, userSession);
-
-    res.json(userSession);
+    res.json(session);
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
   }

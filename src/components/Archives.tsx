@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ShoppingBag, Search, X, Trash2, ArrowRight, AlertCircle } from 'lucide-react';
-import { getCookie } from '@/utils/cookies';
 import CheckoutModal from './CheckoutModal';
 import ProductDetail from './ProductDetail';
 
@@ -27,7 +26,7 @@ interface ArchivesProps {
   readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
 }
 
-export default function Archives({ user, onToast }: ArchivesProps): React.JSX.Element {
+export default function Archives({ onToast }: ArchivesProps): React.JSX.Element {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');

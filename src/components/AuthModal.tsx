@@ -5,7 +5,7 @@ import { setCookie } from '@/utils/cookies';
 interface AuthModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onSuccess: (user: { email: string; phone: string }) => void;
+  readonly onSuccess: (user: { email: string; phone: string; name?: string; isAdmin?: boolean }) => void;
 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps): React.JSX.Element | null {
@@ -344,4 +344,3 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     </div>
   );
 }
-

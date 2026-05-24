@@ -12,13 +12,13 @@ import Profile from '@/components/Profile';
 import AdminPanel from '@/components/AdminPanel';
 import ToastContainer, { useToast } from '@/components/Toast';
 import { LOADING_MESSAGES } from '@/constants/loading';
-import { ADMIN_EMAILS } from '@/constants/admin';
 import { getCookie, deleteCookie } from '@/utils/cookies';
 
 interface UserSession {
   email: string;
   phone: string;
   name?: string;
+  isAdmin?: boolean;
 }
 
 export default function Shop(): React.JSX.Element {
@@ -96,7 +96,7 @@ export default function Shop(): React.JSX.Element {
         onLoginClick={() => setIsAuthOpen(true)}
         user={currentUser}
         onLogout={handleLogout}
-        isAdmin={!!currentUser && ADMIN_EMAILS.includes(currentUser.email)}
+        isAdmin={Boolean(currentUser?.isAdmin)}
       />
       
       {activePage === 'home' && (
@@ -110,7 +110,7 @@ export default function Shop(): React.JSX.Element {
       {activePage === 'tnc' && <TermsAndConditions setActivePage={handlePageChange} />}
       {activePage === 'archives' && <Archives user={currentUser} onLogout={handleLogout} onToast={addToast} />}
       {activePage === 'profile' && <Profile user={currentUser} onLogout={handleLogout} onUserUpdate={setCurrentUser} onToast={addToast} />}
-      {activePage === 'admin' && currentUser && ADMIN_EMAILS.includes(currentUser.email) && <AdminPanel />}
+      {activePage === 'admin' && currentUser?.isAdmin && <AdminPanel />}
 
       {activePage !== 'archives' && <Footer setActivePage={handlePageChange} />}
 

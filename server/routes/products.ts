@@ -2,12 +2,9 @@ import { Router, Request, Response } from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
-import jwt from 'jsonwebtoken';
 import Product from '../models/Product';
-import User from '../models/User';
 import { cacheSession, getCachedSession, deleteCachedSession, redisClient } from '../services/redis';
-
-const JWT_SECRET = (process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key').replace(/"/g, '');
+import { isAdminRequest } from '../utils/auth';
 
 const router = Router();
 
@@ -16,27 +13,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY || 'LqyAPS1gG-ArjeiTGYkGs4VmYm0',
   api_secret: process.env.CLOUDINARY_API_SECRET || 'mock-secret',
 });
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').replace(/"/g, '').split(',').map(e => e.trim().toLowerCase());
-
-const checkAdmin = async (req: Request): Promise<boolean> => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { email?: string };
-    if (decoded.email && ADMIN_EMAILS.includes(decoded.email.toLowerCase())) return true;
-    const session = await getCachedSession(`session:${token}`);
-    if (session && session.email && ADMIN_EMAILS.includes(session.email.toLowerCase())) return true;
-    return false;
-  } catch (err) {
-    try {
-      const decoded = jwt.decode(token) as { email?: string };
-      if (decoded && decoded.email && ADMIN_EMAILS.includes(decoded.email.toLowerCase())) return true;
-    } catch {}
-    return false;
-  }
-};
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -115,7 +91,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const isadmin = await checkAdmin(req);
+    const isadmin = await isAdminRequest(req);
     if (!isadmin) {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
@@ -137,7 +113,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
 router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const isadmin = await checkAdmin(req);
+    const isadmin = await isAdminRequest(req);
     if (!isadmin) {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
@@ -162,7 +138,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
 
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    const isadmin = await checkAdmin(req);
+    const isadmin = await isAdminRequest(req);
     if (!isadmin) {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
@@ -182,7 +158,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 
 router.post('/upload', async (req: Request, res: Response): Promise<void> => {
   try {
-    const isadmin = await checkAdmin(req);
+    const isadmin = await isAdminRequest(req);
     if (!isadmin) {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
