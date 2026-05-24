@@ -13,6 +13,7 @@ import AdminPanel from '@/components/AdminPanel';
 import ToastContainer from '@/components/Toast';
 import { LOADING_MESSAGES } from '@/constants/loading';
 import { getCookie, deleteCookie } from '@/utils/cookies';
+import { readJson } from '@/utils/http';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import type { UserSession } from '@/types/user';
@@ -44,7 +45,7 @@ export default function Shop(): React.JSX.Element {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.ok) {
-            const data = await res.json();
+            const data = await readJson<UserSession>(res);
             setCurrentUser(data);
           } else {
             deleteCookie('auth_token');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ShoppingBag, Search, X, ArrowRight, AlertCircle, Heart, SlidersHorizontal } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
+import { getResponseError, readJson } from '@/utils/http';
 import CheckoutModal from './CheckoutModal';
 import ProductDetail from './ProductDetail';
 import CartDrawer from './cart/CartDrawer';
@@ -46,7 +47,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
     try {
       const res = await fetch('/api/products');
       if (res.ok) {
-        const data = await res.json();
+        const data = await readJson<ProductItem[]>(res);
         setProducts(data);
       }
     } catch (err) {
@@ -85,7 +86,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return;
-      const data = await res.json();
+      const data = await readJson<ProductItem[]>(res);
       setWishlistIds(new Set(data.map((product: ProductItem) => product._id)));
     } catch (err) {
       console.error(err);
@@ -159,8 +160,9 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
         method: isSaved ? 'DELETE' : 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not update saved items');
+      const data = await readJson<ProductItem[] | { error?: string }>(res);
+      if (!res.ok) throw new Error(getResponseError(data, 'Could not update saved items'));
+      if (!Array.isArray(data)) throw new Error('Could not update saved items');
       setWishlistIds(new Set(data.map((item: ProductItem) => item._id)));
       onToast?.('success', isSaved ? 'Removed from saved items' : 'Saved for later');
     } catch (err) {

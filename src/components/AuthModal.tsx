@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Smartphone, Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { AUTH_COOKIE_DAYS } from '@/constants/auth';
 import { setCookie } from '@/utils/cookies';
+import { getResponseError, readJson } from '@/utils/http';
 import type { UserSession } from '@/types/user';
 
 interface AuthModalProps {
@@ -57,9 +58,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             body: JSON.stringify({ email, phone, password }),
           });
 
-          const data = await response.json();
+          const data = await readJson<{ error?: string }>(response);
           if (!response.ok) {
-            setError(data.error || 'Oops! We could not send your verification code. Please check your details.');
+            setError(getResponseError(data, 'Oops! We could not send your verification code. Please check your details.'));
             setLoading(false);
             return;
           }
@@ -78,9 +79,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             body: JSON.stringify({ email, password }),
           });
 
-          const data = await response.json();
+          const data = await readJson<{ error?: string; requiresOtp?: boolean; token: string; user: UserSession }>(response);
           if (!response.ok) {
-            setError(data.error || 'Those details do not match our records. Please double-check and try again!');
+            setError(getResponseError(data, 'Those details do not match our records. Please double-check and try again!'));
             setLoading(false);
             return;
           }
@@ -113,9 +114,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      const data = await readJson<{ error?: string; token: string; user: UserSession }>(response);
       if (!response.ok) {
-        setError(data.error || 'Incorrect security code. Please try again!');
+        setError(getResponseError(data, 'Incorrect security code. Please try again!'));
         setLoading(false);
         return;
       }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, AlertCircle } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
+import { getResponseError, readJson } from '@/utils/http';
 import type { SavedAddress, UserSession } from '@/types/user';
 
 declare global {
@@ -84,7 +85,7 @@ export default function CheckoutModal({
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
-        const data: SavedAddress | null = await res.json();
+        const data = await readJson<SavedAddress | null>(res);
         if (!data) return;
         setName(data.name || user?.name || '');
         setPhone(data.phone || user?.phone || '');
@@ -125,7 +126,7 @@ export default function CheckoutModal({
           setDeliveryCheck(null);
           return;
         }
-        const data = await res.json();
+        const data = await readJson<{ serviceable: boolean; courierName: string; estimatedDays: string; message?: string }>(res);
         if (!cancelled) setDeliveryCheck(data);
       } catch {
         if (!cancelled) setDeliveryCheck(null);
@@ -220,9 +221,21 @@ export default function CheckoutModal({
         }),
       });
 
-      const data = await res.json();
+      const data = await readJson<{
+        error?: string;
+        paymentSessionId?: string;
+        cashfreeOrderId?: string;
+        items?: CheckoutItem[];
+        cashfreeMode?: string;
+        reservationExpiresAt?: string;
+      }>(res);
       if (!res.ok) {
-        setError(data.error || 'Product reservation failed');
+        setError(getResponseError(data, 'Product reservation failed'));
+        setStep('address');
+        return;
+      }
+      if (!data.paymentSessionId || !data.cashfreeOrderId) {
+        setError('Payment session could not be created');
         setStep('address');
         return;
       }
@@ -271,9 +284,9 @@ export default function CheckoutModal({
         }),
       });
 
-      const verifyData = await verifyRes.json();
+      const verifyData = await readJson<{ error?: string }>(verifyRes);
       if (!verifyRes.ok) {
-        setError(verifyData.error || 'Payment verification failed');
+        setError(getResponseError(verifyData, 'Payment verification failed'));
         setStep('address');
         return;
       }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Shield, Package, Pencil, X, Check, Eye, EyeOff, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
+import { getResponseError, readJson } from '@/utils/http';
 import SavedAddressForm from './profile/SavedAddressForm';
 import WishlistGrid from './profile/WishlistGrid';
 import OrderDetailsPanel from './profile/OrderDetailsPanel';
@@ -59,7 +60,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
       if (!token) return;
       try {
         const res = await fetch('/api/orders/history', { headers: { Authorization: `Bearer ${token}` } });
-        if (res.ok) setOrders(await res.json());
+        if (res.ok) setOrders(await readJson<OrderRecord[]>(res));
       } catch (err) { console.error(err); } finally { setLoading(false); }
     };
     fetchHistory();
@@ -79,9 +80,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
           fetch('/api/user/address', { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
-        if (wishlistRes.ok) setWishlist(await wishlistRes.json());
+        if (wishlistRes.ok) setWishlist(await readJson<ProductItem[]>(wishlistRes));
         if (addressRes.ok) {
-          const savedAddress: SavedAddress | null = await addressRes.json();
+          const savedAddress = await readJson<SavedAddress | null>(addressRes);
           setAddressInput(savedAddress || {
             ...createEmptySavedAddress(),
             name: user?.name || '',
@@ -111,7 +112,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     try {
       const res = await fetch(`/api/orders/track/${shipmentId}`, { headers });
       if (res.ok) {
-        setTrackingDetails(await res.json());
+        setTrackingDetails(await readJson<TrackingResponse>(res));
       }
     } catch (err) {
       console.error(err);
@@ -144,9 +145,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     setSaving(true);
     try {
       const res = await fetch('/api/user/name', { method: 'PUT', headers, body: JSON.stringify({ name: nameInput.trim() }) });
-      const data = await res.json();
+      const data = await readJson<{ error?: string; name?: string }>(res);
       if (res.ok && user) { onToast?.('success', 'Name updated'); onUserUpdate?.({ ...user, name: data.name }); cancelEdit(); }
-      else onToast?.('error', data.error);
+      else onToast?.('error', getResponseError(data, 'Failed to update'));
     } catch { onToast?.('error', 'Failed to update'); } finally { setSaving(false); }
   };
 
@@ -155,9 +156,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     setSaving(true);
     try {
       const res = await fetch('/api/user/phone', { method: 'PUT', headers, body: JSON.stringify({ phone: phoneInput.trim() }) });
-      const data = await res.json();
-      if (res.ok && user) { onToast?.('success', 'Phone updated'); onUserUpdate?.({ ...user, phone: data.phone }); cancelEdit(); }
-      else onToast?.('error', data.error);
+      const data = await readJson<{ error?: string; phone?: string }>(res);
+      if (res.ok && user && data.phone) { onToast?.('success', 'Phone updated'); onUserUpdate?.({ ...user, phone: data.phone }); cancelEdit(); }
+      else onToast?.('error', getResponseError(data, 'Failed to update'));
     } catch { onToast?.('error', 'Failed to update'); } finally { setSaving(false); }
   };
 
@@ -166,9 +167,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     setSaving(true);
     try {
       const res = await fetch('/api/user/email', { method: 'PUT', headers, body: JSON.stringify({ newEmail: emailInput.trim() }) });
-      const data = await res.json();
+      const data = await readJson<{ error?: string }>(res);
       if (res.ok) { onToast?.('success', 'Verification code sent'); setEmailStep('verify'); }
-      else onToast?.('error', data.error);
+      else onToast?.('error', getResponseError(data, 'Failed to send code'));
     } catch { onToast?.('error', 'Failed to send code'); } finally { setSaving(false); }
   };
 
@@ -177,9 +178,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     setSaving(true);
     try {
       const res = await fetch('/api/user/verify-email-change', { method: 'POST', headers, body: JSON.stringify({ otp: emailOtp }) });
-      const data = await res.json();
-      if (res.ok && user) { onToast?.('success', 'Email updated'); onUserUpdate?.({ ...user, email: data.email, isAdmin: data.isAdmin ?? user.isAdmin }); cancelEdit(); }
-      else onToast?.('error', data.error);
+      const data = await readJson<{ error?: string; email?: string; isAdmin?: boolean }>(res);
+      if (res.ok && user && data.email) { onToast?.('success', 'Email updated'); onUserUpdate?.({ ...user, email: data.email, isAdmin: data.isAdmin ?? user.isAdmin }); cancelEdit(); }
+      else onToast?.('error', getResponseError(data, 'Verification failed'));
     } catch { onToast?.('error', 'Verification failed'); } finally { setSaving(false); }
   };
 
@@ -190,9 +191,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     setSaving(true);
     try {
       const res = await fetch('/api/user/password', { method: 'PUT', headers, body: JSON.stringify({ currentPassword: currentPass, newPassword: newPass }) });
-      const data = await res.json();
+      const data = await readJson<{ error?: string }>(res);
       if (res.ok) { onToast?.('success', 'Password updated'); cancelEdit(); }
-      else onToast?.('error', data.error);
+      else onToast?.('error', getResponseError(data, 'Failed to update'));
     } catch { onToast?.('error', 'Failed to update'); } finally { setSaving(false); }
   };
 
@@ -205,9 +206,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     setSaving(true);
     try {
       const res = await fetch('/api/user/address', { method: 'PUT', headers, body: JSON.stringify(addressInput) });
-      const data = await res.json();
-      if (res.ok) { onToast?.('success', 'Default address saved'); setAddressInput(data.address); }
-      else onToast?.('error', data.error);
+      const data = await readJson<{ error?: string; address?: SavedAddress }>(res);
+      if (res.ok && data.address) { onToast?.('success', 'Default address saved'); setAddressInput(data.address); }
+      else onToast?.('error', getResponseError(data, 'Failed to save address'));
     } catch {
       onToast?.('error', 'Failed to save address');
     } finally {
@@ -218,12 +219,13 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
   const removeSavedItem = async (productId: string) => {
     try {
       const res = await fetch(`/api/user/wishlist/${productId}`, { method: 'DELETE', headers });
-      const data = await res.json();
+      const data = await readJson<ProductItem[] | { error?: string }>(res);
       if (res.ok) {
+        if (!Array.isArray(data)) throw new Error('Could not update saved items');
         setWishlist(data);
         onToast?.('success', 'Removed from saved items');
       } else {
-        onToast?.('error', data.error);
+        onToast?.('error', getResponseError(data, 'Could not update saved items'));
       }
     } catch {
       onToast?.('error', 'Could not update saved items');

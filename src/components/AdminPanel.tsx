@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Boxes, Mail, ReceiptText, UsersRound } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
+import { getResponseError, readJson } from '@/utils/http';
 import AdminHeader from './admin/AdminHeader';
 import AdminEmailPanel from './admin/AdminEmailPanel';
 import AdminInventoryTable from './admin/AdminInventoryTable';
@@ -52,7 +53,7 @@ export default function AdminPanel(): React.JSX.Element {
     try {
       const response = await fetch('/api/products');
       if (!response.ok) throw new Error('Failed to load inventory');
-      const data = await response.json();
+      const data = await readJson(response);
       setProducts(Array.isArray(data) ? data : []);
     } catch {
       setError('Inventory could not be loaded');
@@ -74,8 +75,8 @@ export default function AdminPanel(): React.JSX.Element {
       const response = await fetch('/api/orders/admin', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to load orders');
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to load orders'));
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Orders could not be loaded');
@@ -97,8 +98,8 @@ export default function AdminPanel(): React.JSX.Element {
       const response = await fetch('/api/user/admin/email-users', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to load users');
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to load users'));
       setEmailUsers(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Users could not be loaded');
@@ -120,8 +121,8 @@ export default function AdminPanel(): React.JSX.Element {
       const response = await fetch('/api/user/admin/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to load users');
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to load users'));
       setAdminUsers(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Admin users could not be loaded');
@@ -191,8 +192,8 @@ export default function AdminPanel(): React.JSX.Element {
           },
           body: JSON.stringify({ image: reader.result }),
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Failed to upload image file');
+        const data = await readJson<{ url?: string }>(response);
+        if (!response.ok) throw new Error(getResponseError(data, 'Failed to upload image file'));
         updateFormValues({ image: data.url });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Image upload failed');
@@ -248,8 +249,8 @@ export default function AdminPanel(): React.JSX.Element {
         },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to save product record');
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to save product record'));
       closeModal();
       await fetchProducts();
       await fetchOrders();
@@ -281,8 +282,8 @@ export default function AdminPanel(): React.JSX.Element {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to delete product record');
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to delete product record'));
       await fetchProducts();
       await fetchOrders();
     } catch (err) {
@@ -316,8 +317,8 @@ export default function AdminPanel(): React.JSX.Element {
           description: product.description || '',
         }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to update stock status');
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to update stock status'));
       await fetchProducts();
       await fetchOrders();
     } catch (err) {
@@ -355,8 +356,8 @@ export default function AdminPanel(): React.JSX.Element {
         },
         body: JSON.stringify(emailValues),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to send email');
+      const data = await readJson<{ sent?: number; total?: number; failed?: string[] }>(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to send email'));
       const failedCount = Array.isArray(data.failed) ? data.failed.length : 0;
       setEmailResult(`Sent ${data.sent || 0} of ${data.total || 0} emails${failedCount > 0 ? `, ${failedCount} failed` : ''}`);
       setEmailValues((currentValues) => ({ ...currentValues, subject: '', message: '' }));
@@ -385,8 +386,8 @@ export default function AdminPanel(): React.JSX.Element {
         },
         body: JSON.stringify(values),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to update user');
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to update user'));
       await fetchAdminUsers();
       await fetchEmailUsers();
       await fetchOrders();
@@ -412,8 +413,8 @@ export default function AdminPanel(): React.JSX.Element {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to delete user');
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(getResponseError(data, 'Failed to delete user'));
       await fetchAdminUsers();
       await fetchEmailUsers();
     } catch (err) {
