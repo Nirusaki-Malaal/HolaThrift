@@ -53,7 +53,7 @@ export default function CheckoutModal({
   const [cashfreeMode, setCashfreeMode] = useState<'sandbox' | 'production'>('production');
   const [orderReference, setOrderReference] = useState('');
   const [reservationExpiresAt, setReservationExpiresAt] = useState('');
-  const [deliveryCheck, setDeliveryCheck] = useState<{ serviceable: boolean; courierName: string; estimatedDays: string } | null>(null);
+  const [deliveryCheck, setDeliveryCheck] = useState<{ serviceable: boolean; courierName: string; estimatedDays: string; message?: string } | null>(null);
   const [checkingDelivery, setCheckingDelivery] = useState<boolean>(false);
 
   useEffect(() => {
@@ -370,7 +370,7 @@ export default function CheckoutModal({
                   {checkingDelivery
                     ? 'Checking Shiprocket serviceability...'
                     : deliveryCheck?.serviceable
-                      ? `Serviceable via ${deliveryCheck.courierName || 'Shiprocket'}${deliveryCheck.estimatedDays ? ` · ETA ${deliveryCheck.estimatedDays}` : ''}`
+                      ? deliveryCheck.message || `Serviceable via ${deliveryCheck.courierName || 'Shiprocket'}${deliveryCheck.estimatedDays ? ` · ETA ${deliveryCheck.estimatedDays}` : ''}`
                       : 'Shiprocket serviceability could not be confirmed'}
                 </div>
               )}

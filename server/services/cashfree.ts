@@ -1,3 +1,6 @@
+import { getEnv } from '../config/env';
+import { IntegrationConfigError } from './integrationError';
+
 export type CashfreeMode = 'sandbox' | 'production';
 
 export interface CashfreeOrderResponse {
@@ -11,14 +14,22 @@ export interface CashfreeOrderStatus {
   [key: string]: unknown;
 }
 
-const appId = process.env.CASHFREE_APP_ID || '';
-const secretKey = process.env.CASHFREE_SECRET_KEY || '';
-const apiVersion = process.env.CASHFREE_API_VERSION || '2023-08-01';
-const configuredMode = (process.env.CASHFREE_ENV || process.env.CASHFREE_MODE || 'production').toLowerCase();
+const appId = getEnv('CASHFREE_APP_ID');
+const secretKey = getEnv('CASHFREE_SECRET_KEY');
+const apiVersion = getEnv('CASHFREE_API_VERSION') || '2023-08-01';
+const configuredMode = (getEnv('CASHFREE_ENV') || getEnv('CASHFREE_MODE') || 'production').toLowerCase();
 const mode: CashfreeMode = configuredMode === 'sandbox' ? 'sandbox' : 'production';
 const baseUrl = mode === 'sandbox' ? 'https://sandbox.cashfree.com/pg' : 'https://api.cashfree.com/pg';
 
 export const getCashfreeMode = (): CashfreeMode => mode;
+
+export const isCashfreeConfigured = (): boolean => Boolean(appId && secretKey);
+
+const assertCashfreeConfigured = (): void => {
+  if (!isCashfreeConfigured()) {
+    throw new IntegrationConfigError('Cashfree credentials are not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY.');
+  }
+};
 
 const getHeaders = () => ({
   'x-client-id': appId,
@@ -33,8 +44,8 @@ const cleanPhoneNumber = (phone: string): string => {
 };
 
 const getOrderMeta = (orderId: string) => {
-  const returnUrl = process.env.CASHFREE_RETURN_URL || `${process.env.PUBLIC_SITE_URL || 'https://holathrift.in'}/?order_id=${orderId}`;
-  const notifyUrl = process.env.CASHFREE_NOTIFY_URL || '';
+  const returnUrl = getEnv('CASHFREE_RETURN_URL') || `${getEnv('PUBLIC_SITE_URL') || 'https://holathrift.in'}/?order_id=${orderId}`;
+  const notifyUrl = getEnv('CASHFREE_NOTIFY_URL');
 
   return {
     return_url: returnUrl,
@@ -49,6 +60,8 @@ export const createCashfreeOrder = async (
   phone: string,
   name: string
 ): Promise<CashfreeOrderResponse> => {
+  assertCashfreeConfigured();
+
   const response = await fetch(`${baseUrl}/orders`, {
     method: 'POST',
     headers: getHeaders(),
@@ -73,6 +86,9 @@ export const createCashfreeOrder = async (
 
   if (!response.ok) {
     const errorText = await response.text();
+    if (response.status === 401 || response.status === 403 || errorText.toLowerCase().includes('authentication')) {
+      throw new IntegrationConfigError('Cashfree authentication failed. Check CASHFREE_APP_ID, CASHFREE_SECRET_KEY, and CASHFREE_ENV.');
+    }
     throw new Error(`Cashfree order creation failed: ${errorText}`);
   }
 
@@ -80,6 +96,8 @@ export const createCashfreeOrder = async (
 };
 
 export const verifyCashfreePayment = async (orderId: string): Promise<CashfreeOrderStatus> => {
+  assertCashfreeConfigured();
+
   const response = await fetch(`${baseUrl}/orders/${orderId}`, {
     method: 'GET',
     headers: getHeaders(),
@@ -87,6 +105,9 @@ export const verifyCashfreePayment = async (orderId: string): Promise<CashfreeOr
 
   if (!response.ok) {
     const errorText = await response.text();
+    if (response.status === 401 || response.status === 403 || errorText.toLowerCase().includes('authentication')) {
+      throw new IntegrationConfigError('Cashfree authentication failed. Check CASHFREE_APP_ID, CASHFREE_SECRET_KEY, and CASHFREE_ENV.');
+    }
     throw new Error(`Cashfree payment verification failed: ${errorText}`);
   }
 

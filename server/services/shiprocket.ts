@@ -1,7 +1,9 @@
 import { redisClient } from './redis';
+import { getEnv } from '../config/env';
+import { IntegrationConfigError } from './integrationError';
 
-const email = process.env.SHIPROCKET_EMAIL || '';
-const password = process.env.SHIPROCKET_API_KEY || process.env.SHIPROCKET_PASSWORD || '';
+const email = getEnv('SHIPROCKET_EMAIL');
+const password = getEnv('SHIPROCKET_API_KEY') || getEnv('SHIPROCKET_PASSWORD');
 const baseUrl = 'https://apiv2.shiprocket.in';
 const tokenCacheKey = 'shiprocket:token';
 
@@ -27,6 +29,7 @@ export interface ServiceabilityResult {
   estimatedDays: string;
   freightCharge: number;
   raw: unknown;
+  message?: string;
 }
 
 export interface ShiprocketOrderItem {
@@ -46,7 +49,17 @@ export interface ShiprocketShippingAddress {
   pincode: string;
 }
 
+export const isShiprocketConfigured = (): boolean => Boolean(email && password);
+
+const assertShiprocketConfigured = (): void => {
+  if (!isShiprocketConfigured()) {
+    throw new IntegrationConfigError('Shiprocket credentials are not configured. Set SHIPROCKET_EMAIL and SHIPROCKET_API_KEY.');
+  }
+};
+
 export const getShiprocketToken = async (): Promise<string> => {
+  assertShiprocketConfigured();
+
   if (redisClient.isOpen) {
     const cached = await redisClient.get(tokenCacheKey);
     if (cached) return cached;
@@ -60,6 +73,9 @@ export const getShiprocketToken = async (): Promise<string> => {
 
   if (!response.ok) {
     const errText = await response.text();
+    if (response.status === 401 || response.status === 403 || response.status === 422 || errText.toLowerCase().includes('login detail incorrect')) {
+      throw new IntegrationConfigError('Shiprocket authentication failed. Check SHIPROCKET_EMAIL and SHIPROCKET_API_KEY.');
+    }
     throw new Error(`Shiprocket auth failed: ${errText}`);
   }
 
@@ -72,7 +88,7 @@ export const getShiprocketToken = async (): Promise<string> => {
 };
 
 const getPackageNumber = (key: string, fallback: number): number => {
-  const value = Number(process.env[key]);
+  const value = Number(getEnv(key));
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };
 
@@ -123,8 +139,8 @@ export const createShiprocketOrder = async (
     body: JSON.stringify({
       order_id: orderId,
       order_date: formatOrderDate(),
-      pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION || 'Primary',
-      channel_id: process.env.SHIPROCKET_CHANNEL_ID || '',
+      pickup_location: getEnv('SHIPROCKET_PICKUP_LOCATION') || 'Primary',
+      channel_id: getEnv('SHIPROCKET_CHANNEL_ID'),
       billing_customer_name: firstName,
       billing_last_name: lastName,
       billing_address: shippingAddress.address,
@@ -198,8 +214,29 @@ const fetchTracking = async (endpoint: string): Promise<unknown> => {
 };
 
 export const checkServiceability = async (deliveryPincode: string): Promise<ServiceabilityResult> => {
+  if (!isShiprocketConfigured()) {
+    return {
+      serviceable: true,
+      courierName: 'Shiprocket',
+      estimatedDays: '',
+      freightCharge: 0,
+      raw: null,
+      message: 'Delivery serviceability will be confirmed during order processing.',
+    };
+  }
+
   const token = await getShiprocketToken();
-  const pickupPostcode = process.env.SHIPROCKET_PICKUP_PINCODE || '';
+  const pickupPostcode = getEnv('SHIPROCKET_PICKUP_PINCODE');
+  if (!pickupPostcode) {
+    return {
+      serviceable: true,
+      courierName: 'Shiprocket',
+      estimatedDays: '',
+      freightCharge: 0,
+      raw: null,
+      message: 'Pickup PIN code is not configured. Delivery will be confirmed manually.',
+    };
+  }
   const params = new URLSearchParams({
     pickup_postcode: pickupPostcode,
     delivery_postcode: deliveryPincode,

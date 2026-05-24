@@ -2,8 +2,9 @@ import { Router, Request, Response } from 'express';
 import Order from '../models/Order';
 import Product from '../models/Product';
 import { cacheSession, getCachedSession, deleteCachedSession, acquireLock, releaseLock, redisClient } from '../services/redis';
-import { createCashfreeOrder, getCashfreeMode, verifyCashfreePayment } from '../services/cashfree';
+import { createCashfreeOrder, getCashfreeMode, isCashfreeConfigured, verifyCashfreePayment } from '../services/cashfree';
 import { checkServiceability, createShiprocketOrder, trackAwb, trackShipment } from '../services/shiprocket';
+import { isIntegrationConfigError } from '../services/integrationError';
 import { getRequestSession } from '../utils/auth';
 import type { UserSession } from '../utils/auth';
 
@@ -65,6 +66,23 @@ const getStringField = (value: Record<string, unknown> | null, key: string): str
   return field ? String(field) : '';
 };
 
+const releaseReservedProducts = async (productIds: string[]): Promise<void> => {
+  for (const productId of productIds) {
+    await Product.findByIdAndUpdate(productId, { status: 'available' });
+    if (redisClient.isOpen) {
+      await redisClient.del(`reservation:product:${productId}`);
+    }
+  }
+};
+
+const sendErrorResponse = (res: Response, error: unknown): void => {
+  if (isIntegrationConfigError(error)) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
+  res.status(500).json({ error: 'Internal server error' });
+};
+
 router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await getSessionUser(req);
@@ -77,6 +95,10 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ error: 'Missing reservation details' });
       return;
     }
+    if (!isCashfreeConfigured()) {
+      res.status(503).json({ error: 'Cashfree credentials are not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY.' });
+      return;
+    }
 
     const { verifiedItems, total } = await getVerifiedItems(items);
 
@@ -87,7 +109,7 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       const lockKey = `lock:product:${item.productId}`;
       const locked = await acquireLock(lockKey, 5);
       if (!locked) {
-        for (const id of reservedIds) await Product.findByIdAndUpdate(id, { status: 'available' });
+        await releaseReservedProducts(reservedIds);
         for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
         res.status(409).json({ error: `"${item.name}" is currently locked by another buyer. Please try again.` });
         return;
@@ -96,7 +118,7 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
 
       const prod = await Product.findOne({ _id: item.productId, status: 'available' });
       if (!prod) {
-        for (const id of reservedIds) await Product.findByIdAndUpdate(id, { status: 'available' });
+        await releaseReservedProducts(reservedIds);
         for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
         res.status(409).json({ error: `"${item.name}" is no longer available.` });
         return;
@@ -125,13 +147,23 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       );
     }
 
-    const cfOrder = await createCashfreeOrder(
-      cashfreeOrderId,
-      Number(total),
-      shippingAddress.email,
-      shippingAddress.phone,
-      shippingAddress.name
-    );
+    let cfOrder: Awaited<ReturnType<typeof createCashfreeOrder>>;
+    try {
+      cfOrder = await createCashfreeOrder(
+        cashfreeOrderId,
+        Number(total),
+        shippingAddress.email,
+        shippingAddress.phone,
+        shippingAddress.name
+      );
+    } catch (error) {
+      await releaseReservedProducts(reservedIds);
+      if (redisClient.isOpen) {
+        await redisClient.del(`reservation:order:${cashfreeOrderId}`);
+      }
+      await deleteCachedSession('products:all');
+      throw error;
+    }
 
     await deleteCachedSession('products:all');
 
@@ -145,8 +177,8 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       items: verifiedItems,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!isIntegrationConfigError(error)) console.error(error);
+    sendErrorResponse(res, error);
   }
 });
 
@@ -161,6 +193,17 @@ router.get('/serviceability/:pincode', async (req: Request, res: Response): Prom
     const data = await checkServiceability(pincode);
     res.json(data);
   } catch (error) {
+    if (isIntegrationConfigError(error)) {
+      res.json({
+        serviceable: true,
+        courierName: 'Shiprocket',
+        estimatedDays: '',
+        freightCharge: 0,
+        raw: null,
+        message: error.message,
+      });
+      return;
+    }
     console.error(error);
     res.status(502).json({ error: 'Delivery serviceability check failed' });
   }
@@ -226,7 +269,11 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
     try {
       srOrder = await createShiprocketOrder(cashfreeOrderId, Number(total), verifiedItems, shippingAddress);
     } catch (shippingError) {
-      console.error('Shiprocket order creation failed, proceeding to complete order:', shippingError);
+      if (isIntegrationConfigError(shippingError)) {
+        console.warn(shippingError.message);
+      } else {
+        console.error('Shiprocket order creation failed, proceeding to complete order:', shippingError);
+      }
     }
 
     const order = new Order({
@@ -251,8 +298,8 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
 
     res.status(201).json(order);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!isIntegrationConfigError(error)) console.error(error);
+    sendErrorResponse(res, error);
   }
 });
 
@@ -292,8 +339,8 @@ router.get('/track/:shipmentId', async (req: Request, res: Response): Promise<vo
 
     res.json({ orderId: order._id, tracking: data });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!isIntegrationConfigError(error)) console.error(error);
+    sendErrorResponse(res, error);
   }
 });
 
