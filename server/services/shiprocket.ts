@@ -2,8 +2,6 @@ import { redisClient } from './redis';
 import { getEnv } from '../config/env';
 import { IntegrationConfigError } from './integrationError';
 
-const email = getEnv('SHIPROCKET_EMAIL');
-const password = getEnv('SHIPROCKET_API_KEY') || getEnv('SHIPROCKET_PASSWORD');
 const baseUrl = 'https://apiv2.shiprocket.in';
 const tokenCacheKey = 'shiprocket:token';
 
@@ -49,16 +47,31 @@ export interface ShiprocketShippingAddress {
   pincode: string;
 }
 
-export const isShiprocketConfigured = (): boolean => Boolean(email && password);
+interface ShiprocketCredentials {
+  email: string;
+  password: string;
+}
 
-const assertShiprocketConfigured = (): void => {
-  if (!isShiprocketConfigured()) {
+const getShiprocketCredentials = (): ShiprocketCredentials => ({
+  email: getEnv('SHIPROCKET_EMAIL'),
+  password: getEnv('SHIPROCKET_API_KEY') || getEnv('SHIPROCKET_PASSWORD'),
+});
+
+export const isShiprocketConfigured = (): boolean => {
+  const { email, password } = getShiprocketCredentials();
+  return Boolean(email && password);
+};
+
+const assertShiprocketConfigured = (): ShiprocketCredentials => {
+  const credentials = getShiprocketCredentials();
+  if (!credentials.email || !credentials.password) {
     throw new IntegrationConfigError('Shiprocket credentials are not configured. Set SHIPROCKET_EMAIL and SHIPROCKET_API_KEY.');
   }
+  return credentials;
 };
 
 export const getShiprocketToken = async (): Promise<string> => {
-  assertShiprocketConfigured();
+  const credentials = assertShiprocketConfigured();
 
   if (redisClient.isOpen) {
     const cached = await redisClient.get(tokenCacheKey);
@@ -68,7 +81,7 @@ export const getShiprocketToken = async (): Promise<string> => {
   const response = await fetch(`${baseUrl}/v1/external/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(credentials),
   });
 
   if (!response.ok) {

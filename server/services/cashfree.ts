@@ -14,27 +14,45 @@ export interface CashfreeOrderStatus {
   [key: string]: unknown;
 }
 
-const appId = getEnv('CASHFREE_APP_ID');
-const secretKey = getEnv('CASHFREE_SECRET_KEY');
-const apiVersion = getEnv('CASHFREE_API_VERSION') || '2023-08-01';
-const configuredMode = (getEnv('CASHFREE_ENV') || getEnv('CASHFREE_MODE') || 'production').toLowerCase();
-const mode: CashfreeMode = configuredMode === 'sandbox' ? 'sandbox' : 'production';
-const baseUrl = mode === 'sandbox' ? 'https://sandbox.cashfree.com/pg' : 'https://api.cashfree.com/pg';
+interface CashfreeConfig {
+  appId: string;
+  secretKey: string;
+  apiVersion: string;
+  mode: CashfreeMode;
+  baseUrl: string;
+}
 
-export const getCashfreeMode = (): CashfreeMode => mode;
-
-export const isCashfreeConfigured = (): boolean => Boolean(appId && secretKey);
-
-const assertCashfreeConfigured = (): void => {
-  if (!isCashfreeConfigured()) {
-    throw new IntegrationConfigError('Cashfree credentials are not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY.');
-  }
+const getCashfreeConfig = (): CashfreeConfig => {
+  const configuredMode = (getEnv('CASHFREE_ENV') || getEnv('CASHFREE_MODE') || 'production').toLowerCase();
+  const mode: CashfreeMode = configuredMode === 'sandbox' ? 'sandbox' : 'production';
+  return {
+    appId: getEnv('CASHFREE_APP_ID'),
+    secretKey: getEnv('CASHFREE_SECRET_KEY'),
+    apiVersion: getEnv('CASHFREE_API_VERSION') || '2023-08-01',
+    mode,
+    baseUrl: mode === 'sandbox' ? 'https://sandbox.cashfree.com/pg' : 'https://api.cashfree.com/pg',
+  };
 };
 
-const getHeaders = () => ({
-  'x-client-id': appId,
-  'x-client-secret': secretKey,
-  'x-api-version': apiVersion,
+export const getCashfreeMode = (): CashfreeMode => getCashfreeConfig().mode;
+
+export const isCashfreeConfigured = (): boolean => {
+  const { appId, secretKey } = getCashfreeConfig();
+  return Boolean(appId && secretKey);
+};
+
+const assertCashfreeConfigured = (): CashfreeConfig => {
+  const config = getCashfreeConfig();
+  if (!config.appId || !config.secretKey) {
+    throw new IntegrationConfigError('Cashfree credentials are not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY.');
+  }
+  return config;
+};
+
+const getHeaders = (config: CashfreeConfig) => ({
+  'x-client-id': config.appId,
+  'x-client-secret': config.secretKey,
+  'x-api-version': config.apiVersion,
   'Content-Type': 'application/json',
   Accept: 'application/json',
 });
@@ -60,11 +78,11 @@ export const createCashfreeOrder = async (
   phone: string,
   name: string
 ): Promise<CashfreeOrderResponse> => {
-  assertCashfreeConfigured();
+  const config = assertCashfreeConfigured();
 
-  const response = await fetch(`${baseUrl}/orders`, {
+  const response = await fetch(`${config.baseUrl}/orders`, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: getHeaders(config),
     body: JSON.stringify({
       order_id: orderId,
       order_amount: amount,
@@ -96,11 +114,11 @@ export const createCashfreeOrder = async (
 };
 
 export const verifyCashfreePayment = async (orderId: string): Promise<CashfreeOrderStatus> => {
-  assertCashfreeConfigured();
+  const config = assertCashfreeConfigured();
 
-  const response = await fetch(`${baseUrl}/orders/${orderId}`, {
+  const response = await fetch(`${config.baseUrl}/orders/${orderId}`, {
     method: 'GET',
-    headers: getHeaders(),
+    headers: getHeaders(config),
   });
 
   if (!response.ok) {
