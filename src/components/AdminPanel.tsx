@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Boxes, ReceiptText } from 'lucide-react';
+import { AlertCircle, Boxes, Mail, ReceiptText } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import AdminHeader from './admin/AdminHeader';
+import AdminEmailPanel from './admin/AdminEmailPanel';
 import AdminInventoryTable from './admin/AdminInventoryTable';
 import AdminOrdersTable from './admin/AdminOrdersTable';
 import ProductFormModal from './admin/ProductFormModal';
@@ -14,14 +15,25 @@ import {
 import { getStockCount } from '@/utils/inventory';
 import type { ProductFormValues, ProductItem } from './admin/types';
 import type { OrderRecord } from '@/types/order';
+import type { AdminEmailPayload, AdminEmailUser } from './admin/AdminEmailPanel';
 
-type AdminView = 'inventory' | 'orders';
+type AdminView = 'inventory' | 'orders' | 'emails';
 
 export default function AdminPanel(): React.JSX.Element {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const [emailUsers, setEmailUsers] = useState<AdminEmailUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [emailUsersLoading, setEmailUsersLoading] = useState<boolean>(true);
+  const [emailSending, setEmailSending] = useState<boolean>(false);
+  const [emailResult, setEmailResult] = useState<string>('');
+  const [emailValues, setEmailValues] = useState<AdminEmailPayload>({
+    target: 'all',
+    email: '',
+    subject: '',
+    message: '',
+  });
   const [activeView, setActiveView] = useState<AdminView>('inventory');
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -67,16 +79,45 @@ export default function AdminPanel(): React.JSX.Element {
     }
   };
 
+  const fetchEmailUsers = async (): Promise<void> => {
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Admin session expired. Please sign in again.');
+      setEmailUsersLoading(false);
+      return;
+    }
+
+    setEmailUsersLoading(true);
+    try {
+      const response = await fetch('/api/user/admin/email-users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load users');
+      setEmailUsers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Users could not be loaded');
+    } finally {
+      setEmailUsersLoading(false);
+    }
+  };
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       fetchProducts();
       fetchOrders();
+      fetchEmailUsers();
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
   const updateFormValues = (values: Partial<ProductFormValues>): void => {
     setFormValues((currentValues) => ({ ...currentValues, ...values }));
+  };
+
+  const updateEmailValues = (values: Partial<AdminEmailPayload>): void => {
+    setEmailValues((currentValues) => ({ ...currentValues, ...values }));
+    setEmailResult('');
   };
 
   const resetForm = (): void => {
@@ -255,6 +296,48 @@ export default function AdminPanel(): React.JSX.Element {
     }
   };
 
+  const handleEmailSubmit = async (event: React.FormEvent): Promise<void> => {
+    event.preventDefault();
+    setError('');
+    setEmailResult('');
+
+    if (!emailValues.subject.trim() || !emailValues.message.trim()) {
+      setError('Email subject and message are required');
+      return;
+    }
+    if (emailValues.target === 'user' && !emailValues.email) {
+      setError('Select a user before sending an individual email');
+      return;
+    }
+
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Admin session expired. Please sign in again.');
+      return;
+    }
+
+    setEmailSending(true);
+    try {
+      const response = await fetch('/api/user/admin/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(emailValues),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to send email');
+      const failedCount = Array.isArray(data.failed) ? data.failed.length : 0;
+      setEmailResult(`Sent ${data.sent || 0} of ${data.total || 0} emails${failedCount > 0 ? `, ${failedCount} failed` : ''}`);
+      setEmailValues((currentValues) => ({ ...currentValues, subject: '', message: '' }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Email send failed');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   return (
     <div className="relative z-10 flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 pt-28 sm:pt-32 pb-20 text-left animate-fade-in">
       <AdminHeader onAddProduct={openCreateModal} />
@@ -279,6 +362,16 @@ export default function AdminPanel(): React.JSX.Element {
         >
           <ReceiptText size={14} />
           <span>Placed Orders</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView('emails')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${
+            activeView === 'emails' ? 'bg-white text-black' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <Mail size={14} />
+          <span>Emails</span>
         </button>
       </div>
 
@@ -337,6 +430,18 @@ export default function AdminPanel(): React.JSX.Element {
       ) : (
         <AdminOrdersTable orders={orders} />
       ))}
+
+      {activeView === 'emails' && (
+        <AdminEmailPanel
+          users={emailUsers}
+          loading={emailUsersLoading}
+          sending={emailSending}
+          result={emailResult}
+          values={emailValues}
+          onChange={updateEmailValues}
+          onSubmit={handleEmailSubmit}
+        />
+      )}
 
       <ProductFormModal
         isOpen={modalOpen}

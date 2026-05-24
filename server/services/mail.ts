@@ -214,3 +214,33 @@ export const sendOrderInvoiceEmail = async (to: string, order: InvoiceEmailOrder
     return false;
   }
 };
+
+export const sendCustomEmail = async (to: string, subject: string, message: string): Promise<boolean> => {
+  try {
+    const { transporter, user } = getTransporter();
+    const safeMessage = escapeHtml(message).replace(/\n/g, '<br/>');
+
+    await transporter.sendMail({
+      from: `"Hola Thrift" <${user}>`,
+      to,
+      subject,
+      html: `
+        <div style="background-color: #f6f7fb; color: #111827; font-family: Arial, sans-serif; padding: 36px; max-width: 640px; margin: auto; border-radius: 20px; border: 1px solid #e5e7eb;">
+          <h1 style="margin: 0; font-size: 28px; letter-spacing: -1px; text-transform: uppercase;">
+            HOLA<span style="color: #7c3aed;">THRIFT</span>
+          </h1>
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; margin: 26px 0; color: #374151; font-size: 15px; line-height: 1.7;">
+            ${safeMessage}
+          </div>
+          <p style="font-size: 11px; color: #6b7280; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 18px;">
+            Sent by Hola Thrift. Visit holathrift.in for your account and orders.
+          </p>
+        </div>
+      `,
+    });
+    return true;
+  } catch (error) {
+    logMailError(error);
+    return false;
+  }
+};

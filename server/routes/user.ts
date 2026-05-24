@@ -3,10 +3,10 @@ import bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 import { User } from '../models/User';
 import Product from '../models/Product';
-import { sendOtpEmail } from '../services/mail';
+import { sendCustomEmail, sendOtpEmail } from '../services/mail';
 import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
 import { AUTH_SESSION_TTL_SECONDS } from '../config/auth';
-import { getBearerToken, getRequestSession, toUserSession } from '../utils/auth';
+import { getBearerToken, getRequestSession, isAdminRequest, toUserSession } from '../utils/auth';
 import type { UserLike, UserSession } from '../utils/auth';
 
 const router = Router();
@@ -54,6 +54,75 @@ const normalizeAddress = (body: AddressInput): SavedAddress => ({
 const isAddressComplete = (address: SavedAddress): boolean => {
   return Boolean(address.name && address.phone && address.email && address.address && address.city && address.state && address.pincode);
 };
+
+const getAdminAccess = async (req: Request, res: Response): Promise<boolean> => {
+  const isadmin = await isAdminRequest(req);
+  if (!isadmin) {
+    res.status(403).json({ error: 'Unauthorized admin access required' });
+    return false;
+  }
+  return true;
+};
+
+router.get('/admin/email-users', async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!await getAdminAccess(req, res)) return;
+    const users = await User.find({})
+      .select('email name phone createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/admin/send-email', async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!await getAdminAccess(req, res)) return;
+
+    const target = String(req.body.target || '').trim();
+    const subject = String(req.body.subject || '').trim();
+    const message = String(req.body.message || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+
+    if (!subject || !message) {
+      res.status(400).json({ error: 'Subject and message are required' });
+      return;
+    }
+
+    let recipients: string[] = [];
+    if (target === 'all') {
+      const users = await User.find({}).select('email').lean();
+      recipients = users.map((user) => String(user.email || '')).filter(Boolean);
+    } else {
+      if (!email) {
+        res.status(400).json({ error: 'A user email is required' });
+        return;
+      }
+      const user = await User.findOne({ email }).select('email').lean();
+      if (!user) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+      recipients = [String(user.email)];
+    }
+
+    let sent = 0;
+    const failed: string[] = [];
+    for (const recipient of recipients) {
+      const ok = await sendCustomEmail(recipient, subject, message);
+      if (ok) sent += 1;
+      else failed.push(recipient);
+    }
+
+    res.json({ sent, failed, total: recipients.length });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 router.put('/name', async (req: Request, res: Response): Promise<void> => {
   try {
