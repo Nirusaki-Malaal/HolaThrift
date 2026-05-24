@@ -25,12 +25,12 @@ export default function ProductDetail({ product, onClose, onAddToCart, isInCart 
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose}></div>
+      <div className="product-detail-backdrop absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose}></div>
 
-      <div className="motion-modal relative bg-[#0d0d0d] border border-white/10 w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(168,85,247,0.2)]">
+      <div className="product-detail-shell motion-modal relative bg-[#0d0d0d] border border-white/10 w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(168,85,247,0.2)]">
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 z-10 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white hover:border-white/30 transition-all cursor-pointer"
+          className="product-detail-close absolute top-6 right-6 z-10 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white hover:border-white/30 transition-all cursor-pointer"
         >
           <X size={18} />
         </button>
@@ -43,7 +43,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, isInCart 
                 <span className="text-red-400 font-black text-2xl uppercase tracking-widest rotate-[-12deg]">SOLD OUT</span>
               </div>
             )}
-            <span className="absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-sm border border-white/10 rounded-lg text-[9px] font-mono tracking-widest text-neutral-300 uppercase">
+            <span className="product-detail-chip absolute top-4 left-4 px-3 py-1 bg-black/60 backdrop-blur-sm border border-white/10 rounded-lg text-[9px] font-mono tracking-widest text-neutral-300 uppercase">
               {product.category}
             </span>
             <span className="absolute top-4 right-4 px-3 py-1 bg-purple-500/90 text-white font-mono text-[9px] font-black rounded-lg tracking-wider shadow-[0_0_8px_rgba(168,85,247,0.4)]">

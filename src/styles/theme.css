@@ -78,6 +78,24 @@ html.theme-light .hero-overlay {
   background: rgba(244, 247, 251, 0.58) !important;
 }
 
+html.theme-light .product-detail-backdrop {
+  background: rgba(244, 247, 251, 0.78) !important;
+  backdrop-filter: blur(18px) saturate(1.08);
+}
+
+html.theme-light .product-detail-shell {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(21, 24, 33, 0.12) !important;
+  box-shadow: 0 24px 80px rgba(21, 24, 33, 0.18) !important;
+}
+
+html.theme-light .product-detail-close,
+html.theme-light .product-detail-chip {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(21, 24, 33, 0.14) !important;
+  color: #151821 !important;
+}
+
 html.theme-light .shadow-2xl,
 html.theme-light [class*="shadow-["] {
   box-shadow: 0 18px 55px rgba(21, 24, 33, 0.12) !important;
