@@ -35,7 +35,7 @@ export default function WishlistGrid({ products, loading, onRemove }: WishlistGr
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {products.map((product, index) => (
             <div key={product._id} className="motion-card flex gap-4 rounded-2xl border border-white/5 bg-[#050505] p-4" style={{ animationDelay: `${Math.min(index, 10) * 45}ms` }}>
-              <img src={product.image} alt={product.name} className="h-20 w-20 shrink-0 rounded-xl border border-white/5 object-cover" />
+              <img src={product.image} alt={product.name} loading="lazy" decoding="async" className="h-20 w-20 shrink-0 rounded-xl border border-white/5 object-cover" />
               <div className="min-w-0 flex-1">
                 <h4 className="truncate text-xs font-black uppercase text-white">{product.name}</h4>
                 <p className={`mt-1 font-mono text-[9px] uppercase tracking-widest ${getStockToneClass(product)}`}>

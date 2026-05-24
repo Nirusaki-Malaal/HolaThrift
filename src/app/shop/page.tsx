@@ -1,15 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import Header from '@/components/Header';
-import Hero from '@/components/Hero';
 import Marquee from '@/components/Marquee';
 import Footer from '@/components/Footer';
-import ReturnPolicy from '@/components/ReturnPolicy';
-import TermsAndConditions from '@/components/TermsAndConditions';
 import AuthModal from '@/components/AuthModal';
-import Archives from '@/components/Archives';
-import Profile from '@/components/Profile';
-import AdminPanel from '@/components/AdminPanel';
 import ToastContainer from '@/components/Toast';
 import { LOADING_MESSAGES } from '@/constants/loading';
 import { getCookie, deleteCookie } from '@/utils/cookies';
@@ -17,6 +11,23 @@ import { readJson } from '@/utils/http';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import type { UserSession } from '@/types/user';
+
+const Hero = lazy(() => import('@/components/Hero'));
+const ReturnPolicy = lazy(() => import('@/components/ReturnPolicy'));
+const TermsAndConditions = lazy(() => import('@/components/TermsAndConditions'));
+const Archives = lazy(() => import('@/components/Archives'));
+const Profile = lazy(() => import('@/components/Profile'));
+const AdminPanel = lazy(() => import('@/components/AdminPanel'));
+
+function PageFallback(): React.JSX.Element {
+  return (
+    <div className="relative z-10 flex min-h-[55vh] items-center justify-center px-4 pt-28 text-center">
+      <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-500 animate-pulse">
+        Loading surface
+      </span>
+    </div>
+  );
+}
 
 export default function Shop(): React.JSX.Element {
   const loadingMessages: readonly string[] = LOADING_MESSAGES;
@@ -106,18 +117,20 @@ export default function Shop(): React.JSX.Element {
         activePage={activePage}
       />
       
-      {activePage === 'home' && (
-        <>
-          <Hero onExploreArchives={handleExploreArchives} />
-          <Marquee />
-        </>
-      )}
+      <Suspense fallback={<PageFallback />}>
+        {activePage === 'home' && (
+          <>
+            <Hero onExploreArchives={handleExploreArchives} />
+            <Marquee />
+          </>
+        )}
 
-      {activePage === 'return' && <ReturnPolicy setActivePage={handlePageChange} />}
-      {activePage === 'tnc' && <TermsAndConditions setActivePage={handlePageChange} />}
-      {activePage === 'archives' && <Archives user={currentUser} onLogout={handleLogout} onToast={addToast} />}
-      {activePage === 'profile' && <Profile user={currentUser} onLogout={handleLogout} onUserUpdate={setCurrentUser} onToast={addToast} />}
-      {activePage === 'admin' && currentUser?.isAdmin && <AdminPanel />}
+        {activePage === 'return' && <ReturnPolicy setActivePage={handlePageChange} />}
+        {activePage === 'tnc' && <TermsAndConditions setActivePage={handlePageChange} />}
+        {activePage === 'archives' && <Archives user={currentUser} onLogout={handleLogout} onToast={addToast} />}
+        {activePage === 'profile' && <Profile user={currentUser} onLogout={handleLogout} onUserUpdate={setCurrentUser} onToast={addToast} />}
+        {activePage === 'admin' && currentUser?.isAdmin && <AdminPanel />}
+      </Suspense>
 
       {showFooter && <Footer setActivePage={handlePageChange} />}
 

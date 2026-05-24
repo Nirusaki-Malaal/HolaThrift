@@ -27,7 +27,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, isInCart 
 
         <div className="flex flex-col md:flex-row">
           <div className="relative w-full md:w-1/2 aspect-square bg-[#050505]">
-            <img src={product.image} alt="" className="w-full h-full object-cover" />
+            <img src={product.image} alt="" decoding="async" className="w-full h-full object-cover" />
             {isOutOfStock && (
               <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
                 <span className="text-red-400 font-black text-2xl uppercase tracking-widest rotate-[-12deg]">OUT OF STOCK</span>

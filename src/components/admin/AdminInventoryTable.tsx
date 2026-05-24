@@ -37,6 +37,8 @@ export default function AdminInventoryTable({ products, onEdit, onDelete, onTogg
                     <img
                       src={product.image}
                       alt={product.name}
+                      loading="lazy"
+                      decoding="async"
                       className="h-12 w-12 rounded-lg border border-white/5 bg-[#050505] object-cover"
                     />
                   </td>

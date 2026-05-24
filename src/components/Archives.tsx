@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ShoppingBag, Search, X, ArrowRight, AlertCircle, Heart, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import { getErrorMessage, getResponseError, readJson } from '@/utils/http';
@@ -179,22 +179,22 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
     }
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
-  const cartItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+  const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0), [cart]);
+  const cartItemCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
 
   const handlePaymentSuccess = async (): Promise<void> => {
     saveCart([]);
     await fetchProducts(false);
   };
 
-  const filterOptions = getProductFilterOptions(products);
-  const filteredProducts = getVisibleProducts(products, {
+  const filterOptions = useMemo(() => getProductFilterOptions(products), [products]);
+  const filteredProducts = useMemo(() => getVisibleProducts(products, {
     searchQuery,
     category: selectedCategory,
     size: selectedSize,
     availability: selectedAvailability,
     sort: selectedSort,
-  });
+  }), [products, searchQuery, selectedAvailability, selectedCategory, selectedSize, selectedSort]);
 
   const hasAvailableProducts = filteredProducts.some((product) => !isProductOutOfStock(product));
   const hasOutOfStockProducts = filteredProducts.some(isProductOutOfStock);
@@ -350,7 +350,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                 style={{ animationDelay: `${Math.min(index, 16) * 45}ms` }}
               >
                 <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-lg border border-white/5 bg-[#050505] md:mb-4">
-                  <img src={product.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <img src={product.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <span className="absolute left-2 top-2 max-w-[calc(100%-4.5rem)] truncate rounded-md border border-white/5 bg-black/60 px-1.5 py-0.5 font-mono text-[7px] tracking-widest text-neutral-400 backdrop-blur-sm md:left-3 md:top-3 md:px-2 md:text-[8px]">
                     {product.category}
                   </span>

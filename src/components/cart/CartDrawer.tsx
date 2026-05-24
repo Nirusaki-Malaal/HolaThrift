@@ -46,7 +46,7 @@ export default function CartDrawer({ cart, total, onClose, onRemove, onCheckout 
             <div className="custom-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 text-left">
               {cart.map((item, index) => (
                 <div key={item.product._id} className="motion-card flex items-center gap-4 rounded-2xl border border-white/5 bg-[#111]/30 p-4" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
-                  <img src={item.product.image} alt="" className="h-16 w-16 shrink-0 rounded-xl border border-white/5 bg-[#050505] object-cover" />
+                  <img src={item.product.image} alt="" loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded-xl border border-white/5 bg-[#050505] object-cover" />
                   <div className="min-w-0 flex-1">
                     <h4 className="truncate text-xs font-black uppercase text-white">{item.product.name}</h4>
                     <span className="mt-0.5 block font-mono text-[9px] font-bold text-purple-400">
