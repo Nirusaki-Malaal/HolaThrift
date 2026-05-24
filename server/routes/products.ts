@@ -13,7 +13,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET || 'mock-secret',
 });
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').replace(/"/g, '').split(',').map(e => e.trim().toLowerCase());
 
 const checkAdmin = async (req: Request): Promise<boolean> => {
   const authHeader = req.headers.authorization;
@@ -106,12 +106,12 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
     }
-    const { name, category, price, size, condition, image, description } = req.body;
+    const { name, category, price, size, condition, image, description, status } = req.body;
     if (!name || !category || !price || !size || !condition || !image) {
       res.status(400).json({ error: 'All fields are required' });
       return;
     }
-    const product = new Product({ name, category, price: Number(price), size, condition, image, description });
+    const product = new Product({ name, category, price: Number(price), size, condition, image, description, status: status || 'available' });
     await product.save();
     await deleteCachedSession('products:all');
     res.status(201).json(product);
@@ -128,10 +128,10 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
     }
-    const { name, category, price, size, condition, image, description } = req.body;
+    const { name, category, price, size, condition, image, description, status } = req.body;
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      { name, category, price: Number(price), size, condition, image, description },
+      { name, category, price: Number(price), size, condition, image, description, status },
       { new: true }
     );
     if (!updated) {

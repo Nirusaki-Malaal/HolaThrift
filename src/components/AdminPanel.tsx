@@ -11,6 +11,7 @@ interface ProductItem {
   condition: string;
   image: string;
   description?: string;
+  status: string;
 }
 
 export default function AdminPanel(): React.JSX.Element {
@@ -26,6 +27,7 @@ export default function AdminPanel(): React.JSX.Element {
   const [condition, setCondition] = useState<string>('');
   const [image, setImage] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [status, setStatus] = useState<string>('available');
   
   const [imageLoading, setImageLoading] = useState<boolean>(false);
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
@@ -59,6 +61,7 @@ export default function AdminPanel(): React.JSX.Element {
     setCondition('');
     setImage('');
     setDescription('');
+    setStatus('available');
     setError('');
   };
 
@@ -119,7 +122,7 @@ export default function AdminPanel(): React.JSX.Element {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name, category, price: Number(price), size, condition, image, description }),
+        body: JSON.stringify({ name, category, price: Number(price), size, condition, image, description, status }),
       });
 
       const data = await res.json();
@@ -146,6 +149,7 @@ export default function AdminPanel(): React.JSX.Element {
     setCondition(prod.condition);
     setImage(prod.image);
     setDescription(prod.description || '');
+    setStatus(prod.status || 'available');
     setModalOpen(true);
   };
 
@@ -161,6 +165,37 @@ export default function AdminPanel(): React.JSX.Element {
         await fetchProducts();
       } else {
         alert('Failed to delete product record');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleStock = async (prod: ProductItem): Promise<void> => {
+    const token = getCookie('auth_token');
+    const newStatus = prod.status === 'sold' ? 'available' : 'sold';
+    try {
+      const res = await fetch(`/api/products/${prod._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: prod.name,
+          category: prod.category,
+          price: prod.price,
+          size: prod.size,
+          condition: prod.condition,
+          image: prod.image,
+          description: prod.description,
+          status: newStatus,
+        }),
+      });
+      if (res.ok) {
+        await fetchProducts();
+      } else {
+        alert('Failed to update stock status');
       }
     } catch (err) {
       console.error(err);
@@ -227,6 +262,7 @@ export default function AdminPanel(): React.JSX.Element {
                   <th className="p-6">Price</th>
                   <th className="p-6">Size</th>
                   <th className="p-6">Condition</th>
+                  <th className="p-6">Stock Status</th>
                   <th className="p-6 text-right">Actions</th>
                 </tr>
               </thead>
@@ -245,8 +281,33 @@ export default function AdminPanel(): React.JSX.Element {
                     <td className="p-6 text-white font-sans font-bold">₹{prod.price}</td>
                     <td className="p-6 text-purple-400 font-bold">{prod.size}</td>
                     <td className="p-6 text-neutral-400">{prod.condition}</td>
+                    <td className="p-6">
+                      {prod.status === 'sold' ? (
+                        <span className="px-2.5 py-1 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-[8px] font-black uppercase tracking-widest">
+                          0 Left (Sold Out)
+                        </span>
+                      ) : prod.status === 'reserved' ? (
+                        <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[8px] font-black uppercase tracking-widest">
+                          Reserved (Held)
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[8px] font-black uppercase tracking-widest">
+                          1 Left (In Stock)
+                        </span>
+                      )}
+                    </td>
                     <td className="p-6 text-right">
-                      <div className="flex justify-end gap-3">
+                      <div className="flex justify-end gap-2 items-center">
+                        <button
+                          onClick={() => handleToggleStock(prod)}
+                          className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest cursor-pointer transition-colors ${
+                            prod.status === 'sold'
+                              ? 'bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-500'
+                              : 'bg-red-500/10 border-red-500/20 hover:bg-red-500 hover:text-white text-red-500'
+                          }`}
+                        >
+                          {prod.status === 'sold' ? 'Set In Stock' : 'Set Out Stock'}
+                        </button>
                         <button
                           onClick={() => handleEditClick(prod)}
                           className="p-2 bg-white/5 border border-white/5 rounded-lg hover:border-white/20 hover:text-white cursor-pointer transition-colors"
@@ -356,6 +417,21 @@ export default function AdminPanel(): React.JSX.Element {
                     onChange={(e) => setCondition(e.target.value)}
                     className="w-full bg-[#050505] px-4 py-3 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-neutral-500 font-mono text-[8px] uppercase tracking-widest block mb-2">Inventory Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    className="w-full bg-[#050505] px-4 py-3 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors cursor-pointer"
+                  >
+                    <option value="available">Available (1 Left)</option>
+                    <option value="reserved">Reserved (Held)</option>
+                    <option value="sold">Sold Out (0 Left)</option>
+                  </select>
                 </div>
               </div>
 
