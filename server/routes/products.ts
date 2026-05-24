@@ -13,6 +13,7 @@ interface ProductListItem {
   _id: unknown;
   status?: string;
   stock?: number;
+  initialStock?: number;
   reservedStock?: number;
   [key: string]: unknown;
 }
@@ -49,6 +50,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       const inventory = normalizeInventory(products[i]);
       if (
         products[i].stock !== inventory.stock ||
+        products[i].initialStock !== inventory.initialStock ||
         products[i].reservedStock !== inventory.reservedStock ||
         products[i].status !== inventory.status
       ) {
@@ -97,7 +99,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ error: 'Price and stock must be valid numbers' });
       return;
     }
-    const inventory = normalizeInventory({ stock: numericStock, reservedStock: 0 });
+    const inventory = normalizeInventory({ stock: numericStock, initialStock: numericStock, reservedStock: 0 });
     const product = new Product({ name, category, price: numericPrice, size, image, description, ...inventory });
     await product.save();
     await deleteCachedSession('products:all');
@@ -122,7 +124,14 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ error: 'Price and stock must be valid numbers' });
       return;
     }
-    const inventory = normalizeInventory({ stock: numericStock, reservedStock: 0 });
+    const existing = await Product.findById(req.params.id);
+    if (!existing) {
+      res.status(404).json({ error: 'Product not found' });
+      return;
+    }
+    const currentInventory = existing.toObject();
+    const nextInitialStock = Math.max(Number(currentInventory.initialStock || 0), numericStock);
+    const inventory = normalizeInventory({ ...currentInventory, stock: numericStock, initialStock: nextInitialStock, reservedStock: 0 });
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
       { name, category, price: numericPrice, size, image, description, ...inventory },

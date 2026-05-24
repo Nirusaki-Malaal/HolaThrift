@@ -5,6 +5,7 @@ export interface ProductItem {
   price: number;
   size: string;
   stock?: number;
+  initialStock?: number;
   reservedStock?: number;
   condition?: string;
   image: string;

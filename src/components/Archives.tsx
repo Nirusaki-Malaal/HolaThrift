@@ -4,7 +4,7 @@ import { getCookie } from '@/utils/cookies';
 import CheckoutModal from './CheckoutModal';
 import ProductDetail from './ProductDetail';
 import CartDrawer from './cart/CartDrawer';
-import { getAvailableStockCount, getStockLabel, isProductOutOfStock } from '@/utils/inventory';
+import { getAvailableStockCount, getStockLabel, getStockToneClass, isProductOutOfStock } from '@/utils/inventory';
 import { ALL_FILTER_VALUE, getProductFilterOptions, getVisibleProducts } from '@/utils/productFilters';
 import type { CartItem } from '@/types/cart';
 import type { ProductItem } from '@/types/product';
@@ -191,8 +191,11 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
     sort: selectedSort,
   });
 
-  const availableCount = filteredProducts.reduce((count, product) => count + getAvailableStockCount(product), 0);
-  const soldCount = filteredProducts.filter(isProductOutOfStock).length;
+  const hasAvailableProducts = filteredProducts.some((product) => !isProductOutOfStock(product));
+  const hasOutOfStockProducts = filteredProducts.some(isProductOutOfStock);
+  const inventorySummary = filteredProducts.length === 0
+    ? 'No Matches'
+    : `${hasAvailableProducts ? 'Available Now' : 'Out Of Stock'}${hasOutOfStockProducts ? ' · Some Sold Out' : ''}`;
 
   return (
     <div className="motion-page flex-grow max-w-7xl mx-auto px-6 md:px-12 pt-28 pb-12 w-full relative z-10 text-left">
@@ -200,7 +203,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
         <div>
           <span className="text-purple-400 text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse-fast"></span>
-            {availableCount} In Stock{soldCount > 0 ? ` · ${soldCount} Out` : ''}
+            {inventorySummary}
           </span>
           <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter">
             THE ARCHIVES
@@ -359,7 +362,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                   <h3 className="text-white font-black text-sm uppercase leading-tight tracking-tight group-hover:text-purple-300 transition-colors">
                     {product.name}
                   </h3>
-                  <p className="text-neutral-500 font-mono text-[9px] uppercase tracking-widest">
+                  <p className={`font-mono text-[9px] uppercase tracking-widest ${getStockToneClass(product)}`}>
                     {getStockLabel(product)}
                   </p>
                 </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, ShoppingBag, ArrowRight } from 'lucide-react';
-import { getStockLabel, isProductOutOfStock } from '@/utils/inventory';
+import { getStockLabel, getStockToneClass, isProductOutOfStock } from '@/utils/inventory';
 import type { ProductItem } from '@/types/product';
 
 interface ProductDetailProps {
@@ -46,7 +46,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, isInCart 
               <h2 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-2">
                 {product.name}
               </h2>
-              <p className="text-purple-400 font-mono text-[10px] uppercase tracking-widest mb-6">
+              <p className={`font-mono text-[10px] uppercase tracking-widest mb-6 ${getStockToneClass(product)}`}>
                 {getStockLabel(product)}
               </p>
               {product.description && (
@@ -66,7 +66,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, isInCart 
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-white/5">
                   <span className="text-neutral-500 text-[10px] font-mono uppercase tracking-widest">Availability</span>
-                  <span className="text-white text-xs font-bold uppercase">{getStockLabel(product)}</span>
+                  <span className={`text-xs font-bold uppercase ${getStockToneClass(product)}`}>{getStockLabel(product)}</span>
                 </div>
               </div>
             </div>

@@ -2,6 +2,7 @@ export type InventoryStatus = 'available' | 'reserved' | 'sold';
 
 export interface InventoryLike {
   stock?: unknown;
+  initialStock?: unknown;
   reservedStock?: unknown;
   status?: unknown;
 }
@@ -23,6 +24,10 @@ export const getReservedStockCount = (product: InventoryLike): number => {
   return Math.min(getStockCount(product), toCount(product.reservedStock, 0));
 };
 
+export const getInitialStockCount = (product: InventoryLike): number => {
+  return Math.max(getStockCount(product), toCount(product.initialStock, getStockCount(product)));
+};
+
 export const getAvailableStockCount = (product: InventoryLike): number => {
   return Math.max(0, getStockCount(product) - getReservedStockCount(product));
 };
@@ -33,11 +38,13 @@ export const getInventoryStatus = (product: InventoryLike): InventoryStatus => {
   return getAvailableStockCount(product) > 0 ? 'available' : 'reserved';
 };
 
-export const normalizeInventory = (product: InventoryLike): { stock: number; reservedStock: number; status: InventoryStatus } => {
+export const normalizeInventory = (product: InventoryLike): { stock: number; initialStock: number; reservedStock: number; status: InventoryStatus } => {
   const stock = getStockCount(product);
+  const initialStock = getInitialStockCount({ ...product, stock });
   const reservedStock = Math.min(stock, toCount(product.reservedStock, 0));
   return {
     stock,
+    initialStock,
     reservedStock,
     status: getInventoryStatus({ stock, reservedStock }),
   };

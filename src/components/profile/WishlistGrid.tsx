@@ -1,6 +1,6 @@
 import React from 'react';
 import { Heart, Trash2 } from 'lucide-react';
-import { getStockLabel } from '@/utils/inventory';
+import { getStockLabel, getStockToneClass } from '@/utils/inventory';
 import type { ProductItem } from '@/types/product';
 
 interface WishlistGridProps {
@@ -38,7 +38,7 @@ export default function WishlistGrid({ products, loading, onRemove }: WishlistGr
               <img src={product.image} alt={product.name} className="h-20 w-20 shrink-0 rounded-xl border border-white/5 object-cover" />
               <div className="min-w-0 flex-1">
                 <h4 className="truncate text-xs font-black uppercase text-white">{product.name}</h4>
-                <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-neutral-500">
+                <p className={`mt-1 font-mono text-[9px] uppercase tracking-widest ${getStockToneClass(product)}`}>
                   {product.size} · {getStockLabel(product)}
                 </p>
                 <span className="mt-2 block text-sm font-black text-white">₹{product.price}</span>

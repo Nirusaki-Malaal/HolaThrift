@@ -16,6 +16,10 @@ export const getReservedStockCount = (product: ProductItem): number => {
   return Math.min(getStockCount(product), toCount(product.reservedStock, 0));
 };
 
+export const getInitialStockCount = (product: ProductItem): number => {
+  return Math.max(getStockCount(product), toCount(product.initialStock, getStockCount(product)));
+};
+
 export const getAvailableStockCount = (product: ProductItem): number => {
   return Math.max(0, getStockCount(product) - getReservedStockCount(product));
 };
@@ -24,8 +28,19 @@ export const isProductOutOfStock = (product: ProductItem): boolean => {
   return getAvailableStockCount(product) <= 0;
 };
 
-export const getStockLabel = (product: ProductItem): string => {
+export const isProductLowStock = (product: ProductItem): boolean => {
   const available = getAvailableStockCount(product);
-  if (available <= 0) return 'Out of stock';
-  return `${available} in stock`;
+  const initial = getInitialStockCount(product);
+  return available > 0 && initial > 0 && available / initial <= 0.4;
+};
+
+export const getStockLabel = (product: ProductItem): string => {
+  if (isProductOutOfStock(product)) return 'Out of stock';
+  if (isProductLowStock(product)) return 'Few Left BUY NOW!!';
+  return 'In stock';
+};
+
+export const getStockToneClass = (product: ProductItem): string => {
+  if (isProductOutOfStock(product) || isProductLowStock(product)) return 'text-red-400';
+  return 'text-emerald-400';
 };
