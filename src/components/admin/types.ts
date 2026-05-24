@@ -6,7 +6,9 @@ export interface ProductItem {
   category: string;
   price: number;
   size: string;
-  condition: string;
+  stock?: number;
+  reservedStock?: number;
+  condition?: string;
   image: string;
   description?: string;
   status?: ProductStatus | string;
@@ -17,10 +19,9 @@ export interface ProductFormValues {
   category: string;
   price: string;
   size: string;
-  condition: string;
+  stock: string;
   image: string;
   description: string;
-  status: ProductStatus;
 }
 
 export interface ProductPayload {
@@ -28,8 +29,7 @@ export interface ProductPayload {
   category: string;
   price: number;
   size: string;
-  condition: string;
+  stock: number;
   image: string;
   description: string;
-  status: ProductStatus;
 }

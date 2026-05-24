@@ -2,21 +2,14 @@ import type { ProductFormValues, ProductItem, ProductPayload, ProductStatus } fr
 
 export const productCategories = ['Outerwear', 'Tops', 'Accessories'];
 
-export const productStatusOptions: Array<{ value: ProductStatus; label: string }> = [
-  { value: 'available', label: 'Available (1 Left)' },
-  { value: 'reserved', label: 'Reserved (Held)' },
-  { value: 'sold', label: 'Sold Out (0 Left)' },
-];
-
 export const createEmptyProductForm = (): ProductFormValues => ({
   name: '',
   category: 'Outerwear',
   price: '',
   size: '',
-  condition: '',
+  stock: '1',
   image: '',
   description: '',
-  status: 'available',
 });
 
 export const toProductStatus = (status?: string): ProductStatus => {
@@ -29,10 +22,9 @@ export const productToFormValues = (product: ProductItem): ProductFormValues => 
   category: product.category,
   price: product.price.toString(),
   size: product.size,
-  condition: product.condition,
+  stock: String(product.stock ?? (toProductStatus(product.status) === 'sold' ? 0 : 1)),
   image: product.image,
   description: product.description || '',
-  status: toProductStatus(product.status),
 });
 
 export const productFormToPayload = (values: ProductFormValues): ProductPayload => ({
@@ -40,10 +32,9 @@ export const productFormToPayload = (values: ProductFormValues): ProductPayload 
   category: values.category,
   price: Number(values.price),
   size: values.size.trim(),
-  condition: values.condition.trim(),
+  stock: Number(values.stock),
   image: values.image.trim(),
   description: values.description.trim(),
-  status: values.status,
 });
 
 export const isProductFormComplete = (values: ProductFormValues): boolean => {
@@ -52,7 +43,7 @@ export const isProductFormComplete = (values: ProductFormValues): boolean => {
     values.category &&
     values.price &&
     values.size.trim() &&
-    values.condition.trim() &&
+    values.stock &&
     values.image.trim()
   );
 };

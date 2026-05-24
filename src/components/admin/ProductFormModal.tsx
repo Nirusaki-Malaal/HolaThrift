@@ -1,7 +1,7 @@
 import React from 'react';
 import { RefreshCw, X } from 'lucide-react';
-import { productCategories, productStatusOptions } from './form';
-import type { ProductFormValues, ProductStatus } from './types';
+import { productCategories } from './form';
+import type { ProductFormValues } from './types';
 
 interface ProductFormModalProps {
   readonly isOpen: boolean;
@@ -111,29 +111,18 @@ export default function ProductFormModal({
               />
             </div>
             <div>
-              <label className="mb-2 block text-[8px] font-mono uppercase tracking-widest text-neutral-500">Condition</label>
+              <label className="mb-2 block text-[8px] font-mono uppercase tracking-widest text-neutral-500">Stock Quantity</label>
               <input
                 required
-                type="text"
-                placeholder="9/10 Mint"
-                value={values.condition}
-                onChange={(event) => onChange({ condition: event.target.value })}
+                type="number"
+                min="0"
+                inputMode="numeric"
+                placeholder="64"
+                value={values.stock}
+                onChange={(event) => onChange({ stock: event.target.value })}
                 className="w-full rounded-lg border border-white/5 bg-[#050505] px-4 py-3 text-xs text-white outline-none transition-colors focus:border-purple-500"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-[8px] font-mono uppercase tracking-widest text-neutral-500">Inventory Status</label>
-            <select
-              value={values.status}
-              onChange={(event) => onChange({ status: event.target.value as ProductStatus })}
-              className="w-full cursor-pointer rounded-lg border border-white/5 bg-[#050505] px-4 py-3 text-xs text-white outline-none transition-colors focus:border-purple-500 sm:max-w-xs"
-            >
-              {productStatusOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
           </div>
 
           <div>

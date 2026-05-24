@@ -4,7 +4,9 @@ export interface ProductItem {
   category: string;
   price: number;
   size: string;
-  condition: string;
+  stock?: number;
+  reservedStock?: number;
+  condition?: string;
   image: string;
   description?: string;
   status?: string;

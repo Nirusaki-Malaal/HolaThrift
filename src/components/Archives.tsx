@@ -4,6 +4,7 @@ import { getCookie } from '@/utils/cookies';
 import CheckoutModal from './CheckoutModal';
 import ProductDetail from './ProductDetail';
 import CartDrawer from './cart/CartDrawer';
+import { getAvailableStockCount, getStockLabel, isProductOutOfStock } from '@/utils/inventory';
 import type { CartItem } from '@/types/cart';
 import type { ProductItem } from '@/types/product';
 import type { UserSession } from '@/types/user';
@@ -96,18 +97,18 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
 
   useEffect(() => {
     if (products.length > 0 && cart.length > 0) {
-      const soldInCart = cart.filter(item => {
+      const unavailableInCart = cart.filter(item => {
         const p = products.find(pr => pr._id === item.product._id);
-        return p && p.status === 'sold';
+        return p && getAvailableStockCount(p) < item.quantity;
       });
-      if (soldInCart.length > 0) {
+      if (unavailableInCart.length > 0) {
         const updated = cart.filter(item => {
           const p = products.find(pr => pr._id === item.product._id);
-          return !p || p.status !== 'sold';
+          return !p || getAvailableStockCount(p) >= item.quantity;
         });
         const timer = window.setTimeout(() => {
           saveCart(updated);
-          onToast?.('info', `${soldInCart.length} item(s) sold out — removed from bag`);
+          onToast?.('info', `${unavailableInCart.length} item(s) are out of stock and were removed from bag`);
         }, 0);
         return () => window.clearTimeout(timer);
       }
@@ -115,8 +116,8 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
   }, [cart, onToast, products, saveCart]);
 
   const handleAddToCart = (product: ProductItem): void => {
-    if (product.status === 'sold') {
-      onToast?.('error', 'This item has been sold');
+    if (isProductOutOfStock(product)) {
+      onToast?.('error', 'This item is out of stock');
       return;
     }
     const existing = cart.find((item) => item.product._id === product._id);
@@ -190,8 +191,8 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
     return matchesSearch && matchesCategory && matchesSize;
   });
 
-  const availableCount = filteredProducts.filter(p => p.status !== 'sold').length;
-  const soldCount = filteredProducts.filter(p => p.status === 'sold').length;
+  const availableCount = filteredProducts.reduce((count, product) => count + getAvailableStockCount(product), 0);
+  const soldCount = filteredProducts.filter(isProductOutOfStock).length;
 
   return (
     <div className="motion-page flex-grow max-w-7xl mx-auto px-6 md:px-12 pt-28 pb-12 w-full relative z-10 text-left">
@@ -199,7 +200,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
         <div>
           <span className="text-purple-400 text-xs font-black uppercase tracking-[0.2em] flex items-center gap-2 mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse-fast"></span>
-            {availableCount} Available{soldCount > 0 ? ` · ${soldCount} Sold` : ''}
+            {availableCount} In Stock{soldCount > 0 ? ` · ${soldCount} Out` : ''}
           </span>
           <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter">
             THE ARCHIVES
@@ -289,14 +290,14 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {filteredProducts.map((product, index) => {
-            const isSold = product.status === 'sold';
+            const isOutOfStock = isProductOutOfStock(product);
             const isInCart = cart.some(item => item.product._id === product._id);
             const isSaved = wishlistIds.has(product._id);
             return (
               <div
                 key={product._id}
                 onClick={() => setSelectedProduct(product)}
-                className={`motion-card motion-lift group relative bg-[#111]/30 border border-white/5 rounded-[2rem] p-5 hover:border-purple-500/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-500 flex flex-col justify-between overflow-hidden cursor-pointer ${isSold ? 'opacity-60' : ''}`}
+                className={`motion-card motion-lift group relative bg-[#111]/30 border border-white/5 rounded-[2rem] p-5 hover:border-purple-500/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-500 flex flex-col justify-between overflow-hidden cursor-pointer ${isOutOfStock ? 'opacity-60' : ''}`}
                 style={{ animationDelay: `${Math.min(index, 16) * 45}ms` }}
               >
                 <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4 bg-[#050505] border border-white/5">
@@ -321,9 +322,9 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                   >
                     <Heart size={15} className={isSaved ? 'fill-current' : ''} />
                   </button>
-                  {isSold && (
+                  {isOutOfStock && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <span className="text-red-400 font-black text-lg uppercase tracking-widest rotate-[-12deg] border-2 border-red-400/40 px-4 py-1 rounded-lg">SOLD</span>
+                      <span className="text-red-400 font-black text-lg uppercase tracking-widest rotate-[-12deg] border-2 border-red-400/40 px-4 py-1 rounded-lg">OUT OF STOCK</span>
                     </div>
                   )}
                 </div>
@@ -333,15 +334,15 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
                     {product.name}
                   </h3>
                   <p className="text-neutral-500 font-mono text-[9px] uppercase tracking-widest">
-                    {product.condition}
+                    {getStockLabel(product)}
                   </p>
                 </div>
 
                 <div className="flex justify-between items-center mt-auto border-t border-white/5 pt-4">
                   <span className="text-white font-black text-base font-sans">₹{product.price}</span>
-                  {isSold ? (
+                  {isOutOfStock ? (
                     <span className="px-4 py-2.5 bg-neutral-800/50 text-neutral-500 font-black text-[9px] uppercase tracking-widest rounded-xl border border-white/5">
-                      SOLD OUT
+                      OUT OF STOCK
                     </span>
                   ) : (
                     <button

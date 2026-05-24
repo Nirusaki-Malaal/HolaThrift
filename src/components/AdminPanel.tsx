@@ -9,8 +9,8 @@ import {
   isProductFormComplete,
   productFormToPayload,
   productToFormValues,
-  toProductStatus,
 } from './admin/form';
+import { getStockCount } from '@/utils/inventory';
 import type { ProductFormValues, ProductItem } from './admin/types';
 
 export default function AdminPanel(): React.JSX.Element {
@@ -122,6 +122,10 @@ export default function AdminPanel(): React.JSX.Element {
       setError('Price must be a valid positive number');
       return;
     }
+    if (!Number.isFinite(payload.stock) || payload.stock < 0) {
+      setError('Stock must be zero or a positive number');
+      return;
+    }
 
     const token = getCookie('auth_token');
     if (!token) {
@@ -190,7 +194,7 @@ export default function AdminPanel(): React.JSX.Element {
       return;
     }
 
-    const nextStatus = toProductStatus(product.status) === 'sold' ? 'available' : 'sold';
+    const nextStock = getStockCount(product) > 0 ? 0 : 1;
 
     try {
       const response = await fetch(`/api/products/${product._id}`, {
@@ -204,10 +208,9 @@ export default function AdminPanel(): React.JSX.Element {
           category: product.category,
           price: product.price,
           size: product.size,
-          condition: product.condition,
+          stock: nextStock,
           image: product.image,
           description: product.description || '',
-          status: nextStatus,
         }),
       });
       const data = await response.json();

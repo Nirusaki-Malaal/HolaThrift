@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import Product from '../models/Product';
 import { cacheSession, getCachedSession, deleteCachedSession, redisClient } from '../services/redis';
+import { normalizeInventory } from '../services/inventory';
 import { isAdminRequest } from '../utils/auth';
 
 const router = Router();
@@ -11,6 +12,8 @@ const router = Router();
 interface ProductListItem {
   _id: unknown;
   status?: string;
+  stock?: number;
+  reservedStock?: number;
   [key: string]: unknown;
 }
 
@@ -43,12 +46,24 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
     let modified = false;
     for (let i = 0; i < products.length; i++) {
-      if (products[i].status === 'reserved') {
+      const inventory = normalizeInventory(products[i]);
+      if (
+        products[i].stock !== inventory.stock ||
+        products[i].reservedStock !== inventory.reservedStock ||
+        products[i].status !== inventory.status
+      ) {
+        await Product.findByIdAndUpdate(products[i]._id, inventory);
+        Object.assign(products[i], inventory);
+        modified = true;
+      }
+
+      if (inventory.reservedStock > 0) {
         const key = `reservation:product:${products[i]._id}`;
-        const hasRes = redisClient.isOpen ? await redisClient.exists(key) : 0;
-        if (!hasRes) {
-          await Product.findByIdAndUpdate(products[i]._id, { status: 'available' });
-          products[i].status = 'available';
+        const hasReservation = redisClient.isOpen ? await redisClient.exists(key) : 0;
+        if (!hasReservation) {
+          const releasedInventory = normalizeInventory({ ...products[i], reservedStock: 0 });
+          await Product.findByIdAndUpdate(products[i]._id, releasedInventory);
+          Object.assign(products[i], releasedInventory);
           modified = true;
         }
       }
@@ -71,12 +86,19 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
     }
-    const { name, category, price, size, condition, image, description, status } = req.body;
-    if (!name || !category || !price || !size || !condition || !image) {
+    const { name, category, price, size, stock, image, description } = req.body;
+    if (!name || !category || !price || !size || stock === undefined || stock === null || !image) {
       res.status(400).json({ error: 'All fields are required' });
       return;
     }
-    const product = new Product({ name, category, price: Number(price), size, condition, image, description, status: status || 'available' });
+    const numericPrice = Number(price);
+    const numericStock = Number(stock);
+    if (!Number.isFinite(numericPrice) || numericPrice <= 0 || !Number.isFinite(numericStock) || numericStock < 0) {
+      res.status(400).json({ error: 'Price and stock must be valid numbers' });
+      return;
+    }
+    const inventory = normalizeInventory({ stock: numericStock, reservedStock: 0 });
+    const product = new Product({ name, category, price: numericPrice, size, image, description, ...inventory });
     await product.save();
     await deleteCachedSession('products:all');
     res.status(201).json(product);
@@ -93,10 +115,17 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
     }
-    const { name, category, price, size, condition, image, description, status } = req.body;
+    const { name, category, price, size, stock, image, description } = req.body;
+    const numericPrice = Number(price);
+    const numericStock = Number(stock);
+    if (!Number.isFinite(numericPrice) || numericPrice <= 0 || !Number.isFinite(numericStock) || numericStock < 0) {
+      res.status(400).json({ error: 'Price and stock must be valid numbers' });
+      return;
+    }
+    const inventory = normalizeInventory({ stock: numericStock, reservedStock: 0 });
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      { name, category, price: Number(price), size, condition, image, description, status },
+      { name, category, price: numericPrice, size, image, description, ...inventory },
       { new: true }
     );
     if (!updated) {

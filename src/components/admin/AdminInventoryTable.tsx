@@ -1,8 +1,8 @@
 import React from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
 import ProductStatusBadge from './ProductStatusBadge';
+import { getReservedStockCount, getStockCount } from '@/utils/inventory';
 import type { ProductItem } from './types';
-import { toProductStatus } from './form';
 
 interface AdminInventoryTableProps {
   readonly products: ProductItem[];
@@ -23,14 +23,14 @@ export default function AdminInventoryTable({ products, onEdit, onDelete, onTogg
               <th className="p-5">Category</th>
               <th className="p-5">Price</th>
               <th className="p-5">Size</th>
-              <th className="p-5">Condition</th>
               <th className="p-5">Stock</th>
+              <th className="p-5">Reserved</th>
               <th className="p-5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 font-mono text-[10px] uppercase tracking-widest text-neutral-300">
             {products.map((product) => {
-              const isSold = toProductStatus(product.status) === 'sold';
+              const isOutOfStock = getStockCount(product) <= 0;
               return (
                 <tr key={product._id} className="transition-colors hover:bg-white/[0.02]">
                   <td className="p-5">
@@ -46,21 +46,21 @@ export default function AdminInventoryTable({ products, onEdit, onDelete, onTogg
                   <td className="p-5">{product.category}</td>
                   <td className="p-5 font-sans font-bold text-white">₹{product.price}</td>
                   <td className="p-5 font-bold text-purple-400">{product.size}</td>
-                  <td className="max-w-[180px] p-5 leading-relaxed text-neutral-400">{product.condition}</td>
                   <td className="p-5">
-                    <ProductStatusBadge status={product.status} />
+                    <ProductStatusBadge product={product} />
                   </td>
+                  <td className="p-5 text-neutral-400">{getReservedStockCount(product)} Held</td>
                   <td className="p-5 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => onToggleStock(product)}
                         className={`whitespace-nowrap rounded-lg border px-3 py-2 text-[8px] font-black uppercase tracking-widest transition-colors ${
-                          isSold
+                          isOutOfStock
                             ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'
                             : 'border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white'
                         }`}
                       >
-                        {isSold ? 'Set In Stock' : 'Set Sold'}
+                        {isOutOfStock ? 'Restock 1' : 'Set Out'}
                       </button>
                       <button
                         onClick={() => onEdit(product)}

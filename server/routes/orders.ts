@@ -4,6 +4,7 @@ import Product from '../models/Product';
 import { cacheSession, getCachedSession, deleteCachedSession, acquireLock, releaseLock, redisClient } from '../services/redis';
 import { createCashfreeOrder, getCashfreeMode, isCashfreeConfigured, verifyCashfreePayment } from '../services/cashfree';
 import { checkServiceability, createShiprocketOrder, trackAwb, trackShipment } from '../services/shiprocket';
+import { getAvailableStockCount, getReservedStockCount, getStockCount, normalizeInventory } from '../services/inventory';
 import { isIntegrationConfigError } from '../services/integrationError';
 import { getRequestSession } from '../utils/auth';
 import type { UserSession } from '../utils/auth';
@@ -22,6 +23,11 @@ interface VerifiedOrderItem {
   productId: string;
   name: string;
   price: number;
+  quantity: number;
+}
+
+interface ReservedOrderItem {
+  productId: string;
   quantity: number;
 }
 
@@ -66,12 +72,53 @@ const getStringField = (value: Record<string, unknown> | null, key: string): str
   return field ? String(field) : '';
 };
 
-const releaseReservedProducts = async (productIds: string[]): Promise<void> => {
-  for (const productId of productIds) {
-    await Product.findByIdAndUpdate(productId, { status: 'available' });
-    if (redisClient.isOpen) {
-      await redisClient.del(`reservation:product:${productId}`);
+const toReservedOrderItems = (items: VerifiedOrderItem[]): ReservedOrderItem[] => {
+  return items.map((item) => ({ productId: item.productId, quantity: item.quantity }));
+};
+
+const parseReservedOrderItems = (value: string | null, fallbackItems: VerifiedOrderItem[]): ReservedOrderItem[] => {
+  if (!value) return toReservedOrderItems(fallbackItems);
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return toReservedOrderItems(fallbackItems);
+    return parsed
+      .map((item) => {
+        if (typeof item === 'string') return { productId: item, quantity: 1 };
+        return {
+          productId: String(item.productId || ''),
+          quantity: Math.max(1, Number(item.quantity || 1)),
+        };
+      })
+      .filter((item) => item.productId);
+  } catch {
+    return toReservedOrderItems(fallbackItems);
+  }
+};
+
+const releaseReservedProducts = async (items: ReservedOrderItem[]): Promise<void> => {
+  for (const item of items) {
+    const product = await Product.findById(item.productId);
+    if (!product) continue;
+    const current = product.toObject();
+    const nextReservedStock = Math.max(0, getReservedStockCount(current) - item.quantity);
+    const inventory = normalizeInventory({ ...current, reservedStock: nextReservedStock });
+    await Product.findByIdAndUpdate(item.productId, inventory);
+    if (redisClient.isOpen && inventory.reservedStock <= 0) {
+      await redisClient.del(`reservation:product:${item.productId}`);
     }
+  }
+};
+
+const completePaidReservation = async (item: VerifiedOrderItem): Promise<void> => {
+  const product = await Product.findById(item.productId);
+  if (!product) return;
+  const current = product.toObject();
+  const nextStock = Math.max(0, getStockCount(current) - item.quantity);
+  const nextReservedStock = Math.max(0, getReservedStockCount(current) - item.quantity);
+  const inventory = normalizeInventory({ ...current, stock: nextStock, reservedStock: nextReservedStock });
+  await Product.findByIdAndUpdate(item.productId, inventory);
+  if (redisClient.isOpen && inventory.reservedStock <= 0) {
+    await redisClient.del(`reservation:product:${item.productId}`);
   }
 };
 
@@ -103,31 +150,41 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
     const { verifiedItems, total } = await getVerifiedItems(items);
 
     const lockedIds: string[] = [];
-    const reservedIds: string[] = [];
+    const reservedItems: ReservedOrderItem[] = [];
 
     for (const item of verifiedItems) {
       const lockKey = `lock:product:${item.productId}`;
       const locked = await acquireLock(lockKey, 5);
       if (!locked) {
-        await releaseReservedProducts(reservedIds);
+        await releaseReservedProducts(reservedItems);
         for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
         res.status(409).json({ error: `"${item.name}" is currently locked by another buyer. Please try again.` });
         return;
       }
       lockedIds.push(item.productId);
 
-      const prod = await Product.findOne({ _id: item.productId, status: 'available' });
+      const prod = await Product.findById(item.productId);
       if (!prod) {
-        await releaseReservedProducts(reservedIds);
+        await releaseReservedProducts(reservedItems);
         for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
         res.status(409).json({ error: `"${item.name}" is no longer available.` });
         return;
       }
-    }
 
-    for (const item of verifiedItems) {
-      await Product.findByIdAndUpdate(item.productId, { status: 'reserved' });
-      reservedIds.push(item.productId);
+      const currentInventory = prod.toObject();
+      if (getAvailableStockCount(currentInventory) < item.quantity) {
+        await releaseReservedProducts(reservedItems);
+        for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
+        res.status(409).json({ error: `"${item.name}" does not have enough stock left.` });
+        return;
+      }
+
+      const inventory = normalizeInventory({
+        ...currentInventory,
+        reservedStock: getReservedStockCount(currentInventory) + item.quantity,
+      });
+      await Product.findByIdAndUpdate(item.productId, inventory);
+      reservedItems.push({ productId: item.productId, quantity: item.quantity });
       if (redisClient.isOpen) {
         await redisClient.setEx(`reservation:product:${item.productId}`, reservationTtlSeconds, '1');
       }
@@ -143,7 +200,7 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
       await redisClient.setEx(
         `reservation:order:${cashfreeOrderId}`,
         reservationTtlSeconds,
-        JSON.stringify(verifiedItems.map((it) => it.productId))
+        JSON.stringify(toReservedOrderItems(verifiedItems))
       );
     }
 
@@ -157,7 +214,7 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
         shippingAddress.name
       );
     } catch (error) {
-      await releaseReservedProducts(reservedIds);
+      await releaseReservedProducts(reservedItems);
       if (redisClient.isOpen) {
         await redisClient.del(`reservation:order:${cashfreeOrderId}`);
       }
@@ -226,20 +283,12 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
 
     const cfStatus = await verifyCashfreePayment(cashfreeOrderId);
     if (cfStatus.order_status !== 'PAID') {
-      const pids: string[] = [];
+      let reservedItems = toReservedOrderItems(verifiedItems);
       if (redisClient.isOpen) {
-        const cachedPids = await redisClient.get(`reservation:order:${cashfreeOrderId}`);
-        if (cachedPids) pids.push(...JSON.parse(cachedPids));
+        const cachedItems = await redisClient.get(`reservation:order:${cashfreeOrderId}`);
+        reservedItems = parseReservedOrderItems(cachedItems, verifiedItems);
       }
-      if (pids.length === 0) {
-        pids.push(...verifiedItems.map((it) => it.productId));
-      }
-      for (const pid of pids) {
-        await Product.findByIdAndUpdate(pid, { status: 'available' });
-        if (redisClient.isOpen) {
-          await redisClient.del(`reservation:product:${pid}`);
-        }
-      }
+      await releaseReservedProducts(reservedItems);
       if (redisClient.isOpen) {
         await redisClient.del(`reservation:order:${cashfreeOrderId}`);
       }
@@ -253,10 +302,7 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
       const lockKey = `lock:product:${item.productId}`;
       await acquireLock(lockKey, 5);
       lockedIds.push(item.productId);
-      await Product.findByIdAndUpdate(item.productId, { status: 'sold' });
-      if (redisClient.isOpen) {
-        await redisClient.del(`reservation:product:${item.productId}`);
-      }
+      await completePaidReservation(item);
     }
     for (const id of lockedIds) {
       await releaseLock(`lock:product:${id}`);
