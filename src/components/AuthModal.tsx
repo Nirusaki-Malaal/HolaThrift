@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Smartphone, Mail, Lock, ShieldCheck } from 'lucide-react';
+import { X, Smartphone, Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { setCookie } from '@/utils/cookies';
 
 interface AuthModalProps {
@@ -14,9 +14,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [email, setEmail] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [otp, setOtp] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -25,8 +28,11 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     setEmail('');
     setPhone('');
     setPassword('');
+    setConfirmPassword('');
     setOtp('');
     setError('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const handleFormSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -36,6 +42,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
     if (step === 'form') {
       if (mode === 'signup') {
+        if (password !== confirmPassword) {
+          setError('Those passwords do not match. Please make sure they are identical!');
+          setLoading(false);
+          return;
+        }
+
         try {
           const response = await fetch('/api/auth/signup', {
             method: 'POST',
@@ -87,6 +99,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       }
       return;
     }
+
 
     const url = mode === 'login' ? '/api/auth/verify-login' : '/api/auth/verify-signup';
     const payload = { email, otp };
@@ -234,13 +247,41 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 <Lock className="absolute left-4 top-4 text-neutral-500" size={16} />
                 <input
                   required
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder={mode === 'login' ? 'Enter your password' : 'Choose a secure password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#050505] pl-12 pr-4 py-4 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
+                  className="w-full bg-[#050505] pl-12 pr-12 py-4 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-4 text-neutral-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
+
+              {mode === 'signup' && (
+                <div className="relative">
+                  <Lock className="absolute left-4 top-4 text-neutral-500" size={16} />
+                  <input
+                    required
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-[#050505] pl-12 pr-12 py-4 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-4 text-neutral-500 hover:text-white transition-colors cursor-pointer"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              )}
 
               <button
                 type="submit"
