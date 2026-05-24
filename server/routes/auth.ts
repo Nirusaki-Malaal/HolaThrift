@@ -6,7 +6,7 @@ import { sendWelcomeEmail, sendOtpEmail, sendLoginOtpEmail } from '../services/m
 import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key';
+const JWT_SECRET = (process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key').replace(/"/g, '');
 
 router.post('/signup', async (req: Request, res: Response): Promise<void> => {
   try {

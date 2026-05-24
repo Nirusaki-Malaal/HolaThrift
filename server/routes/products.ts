@@ -7,7 +7,7 @@ import Product from '../models/Product';
 import User from '../models/User';
 import { cacheSession, getCachedSession, deleteCachedSession, redisClient } from '../services/redis';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key';
+const JWT_SECRET = (process.env.JWT_SECRET || 'holathrift-super-secret-jwt-token-key').replace(/"/g, '');
 
 const router = Router();
 
