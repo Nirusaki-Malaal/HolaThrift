@@ -9,6 +9,7 @@ import { cacheSession, getCachedSession, deleteCachedSession } from '../services
 import { AUTH_SESSION_TTL_SECONDS } from '../config/auth';
 import { isAdminEmail } from '../config/admin';
 import { getBearerToken, getRequestSession, isAdminRequest, toUserSession } from '../utils/auth';
+import { cleanEmail, cleanLongText, cleanPhone, cleanText, isRecord, isValidEmail, isValidObjectId } from '../utils/validation';
 import type { UserLike, UserSession } from '../utils/auth';
 
 const router = Router();
@@ -34,8 +35,6 @@ const getSession = async (req: Request, res: Response): Promise<UserSession | nu
   return session;
 };
 
-type AddressInput = Record<string, unknown>;
-
 const updateSessionCache = async (req: Request, user: UserLike): Promise<UserSession> => {
   const session = toUserSession(user);
   const token = getBearerToken(req);
@@ -43,18 +42,21 @@ const updateSessionCache = async (req: Request, user: UserLike): Promise<UserSes
   return session;
 };
 
-const normalizeAddress = (body: AddressInput): SavedAddress => ({
-  name: String(body.name || '').trim(),
-  phone: String(body.phone || '').trim(),
-  email: String(body.email || '').trim().toLowerCase(),
-  address: String(body.address || '').trim(),
-  city: String(body.city || '').trim(),
-  state: String(body.state || '').trim(),
-  pincode: String(body.pincode || '').trim(),
-});
+const normalizeAddress = (body: unknown): SavedAddress => {
+  const input = isRecord(body) ? body : {};
+  return {
+    name: cleanText(input.name, 80),
+    phone: cleanPhone(input.phone),
+    email: cleanEmail(input.email),
+    address: cleanLongText(input.address, 180),
+    city: cleanText(input.city, 80),
+    state: cleanText(input.state, 80),
+    pincode: cleanText(input.pincode, 12).replace(/\D/g, '').slice(0, 6),
+  };
+};
 
 const isAddressComplete = (address: SavedAddress): boolean => {
-  return Boolean(address.name && address.phone && address.email && address.address && address.city && address.state && address.pincode);
+  return Boolean(address.name && address.phone.length === 10 && isValidEmail(address.email) && address.address && address.city && address.state && address.pincode.length === 6);
 };
 
 const getAdminAccess = async (req: Request, res: Response): Promise<boolean> => {
@@ -125,11 +127,15 @@ router.get('/admin/users', async (req: Request, res: Response): Promise<void> =>
 router.patch('/admin/users/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     if (!await getAdminAccess(req, res)) return;
-    const name = String(req.body.name || '').trim();
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const phone = String(req.body.phone || '').replace(/\D/g, '').slice(-10);
+    if (!isValidObjectId(req.params.id)) {
+      res.status(400).json({ error: 'Valid user id is required' });
+      return;
+    }
+    const name = cleanText(req.body.name, 80);
+    const email = cleanEmail(req.body.email);
+    const phone = cleanPhone(req.body.phone);
 
-    if (!email || phone.length !== 10) {
+    if (!isValidEmail(email) || phone.length !== 10) {
       res.status(400).json({ error: 'Valid email and 10-digit phone are required' });
       return;
     }
@@ -176,6 +182,10 @@ router.delete('/admin/users/:id', async (req: Request, res: Response): Promise<v
       res.status(403).json({ error: 'Unauthorized admin access required' });
       return;
     }
+    if (!isValidObjectId(req.params.id)) {
+      res.status(400).json({ error: 'Valid user id is required' });
+      return;
+    }
     if (session.id === req.params.id) {
       res.status(400).json({ error: 'Admins cannot delete their own active account' });
       return;
@@ -198,9 +208,9 @@ router.post('/admin/send-email', async (req: Request, res: Response): Promise<vo
     if (!await getAdminAccess(req, res)) return;
 
     const target = String(req.body.target || '').trim();
-    const subject = String(req.body.subject || '').trim();
-    const message = String(req.body.message || '').trim();
-    const email = String(req.body.email || '').trim().toLowerCase();
+    const subject = cleanText(req.body.subject, 140);
+    const message = cleanLongText(req.body.message, 5000);
+    const email = cleanEmail(req.body.email);
 
     if (!subject || !message) {
       res.status(400).json({ error: 'Subject and message are required' });
@@ -212,7 +222,7 @@ router.post('/admin/send-email', async (req: Request, res: Response): Promise<vo
       const users = await User.find({}).select('email').lean();
       recipients = users.map((user) => String(user.email || '')).filter(Boolean);
     } else {
-      if (!email) {
+      if (!isValidEmail(email)) {
         res.status(400).json({ error: 'A user email is required' });
         return;
       }
@@ -244,13 +254,17 @@ router.put('/name', async (req: Request, res: Response): Promise<void> => {
     const session = await getSession(req, res);
     if (!session) return;
 
-    const { name } = req.body;
-    if (!name || !name.trim()) {
+    const name = cleanText(req.body.name, 80);
+    if (!name) {
       res.status(400).json({ error: 'Name is required' });
       return;
     }
 
-    const user = await User.findByIdAndUpdate(session.id, { name: name.trim() }, { new: true });
+    const user = await User.findByIdAndUpdate(session.id, { name }, { new: true });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
     const nextSession = await updateSessionCache(req, user);
     res.json({ message: 'Name updated', name: nextSession.name || '' });
   } catch (error) {
@@ -264,19 +278,23 @@ router.put('/phone', async (req: Request, res: Response): Promise<void> => {
     const session = await getSession(req, res);
     if (!session) return;
 
-    const { phone } = req.body;
-    if (!phone || !phone.trim()) {
-      res.status(400).json({ error: 'Phone number is required' });
+    const phone = cleanPhone(req.body.phone);
+    if (phone.length !== 10) {
+      res.status(400).json({ error: 'Valid 10-digit phone number is required' });
       return;
     }
 
-    const existing = await User.findOne({ phone: phone.trim(), _id: { $ne: session.id } });
+    const existing = await User.findOne({ phone, _id: { $ne: session.id } });
     if (existing) {
       res.status(400).json({ error: 'Phone number already in use' });
       return;
     }
 
-    const user = await User.findByIdAndUpdate(session.id, { phone: phone.trim() }, { new: true });
+    const user = await User.findByIdAndUpdate(session.id, { phone }, { new: true });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
     const nextSession = await updateSessionCache(req, user);
     res.json({ message: 'Phone updated', phone: nextSession.phone });
   } catch (error) {
@@ -290,7 +308,8 @@ router.put('/password', async (req: Request, res: Response): Promise<void> => {
     const session = await getSession(req, res);
     if (!session) return;
 
-    const { currentPassword, newPassword } = req.body;
+    const currentPassword = String(req.body.currentPassword || '');
+    const newPassword = String(req.body.newPassword || '');
     if (!currentPassword || !newPassword) {
       res.status(400).json({ error: 'Both passwords are required' });
       return;
@@ -326,13 +345,11 @@ router.put('/email', async (req: Request, res: Response): Promise<void> => {
     const session = await getSession(req, res);
     if (!session) return;
 
-    const { newEmail } = req.body;
-    if (!newEmail || !newEmail.trim()) {
-      res.status(400).json({ error: 'New email is required' });
+    const normalizedEmail = cleanEmail(req.body.newEmail);
+    if (!isValidEmail(normalizedEmail)) {
+      res.status(400).json({ error: 'Valid new email is required' });
       return;
     }
-
-    const normalizedEmail = newEmail.toLowerCase().trim();
     const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       res.status(400).json({ error: 'Email already in use' });
@@ -354,7 +371,7 @@ router.post('/verify-email-change', async (req: Request, res: Response): Promise
     const session = await getSession(req, res);
     if (!session) return;
 
-    const { otp } = req.body;
+    const otp = cleanText(req.body.otp, 12);
     if (!otp) {
       res.status(400).json({ error: 'Verification code is required' });
       return;
@@ -370,8 +387,18 @@ router.post('/verify-email-change', async (req: Request, res: Response): Promise
       return;
     }
 
+    const previousEmail = session.email;
     const user = await User.findByIdAndUpdate(session.id, { email: cached.newEmail }, { new: true });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
     await deleteCachedSession(`email_change:${session.id}`);
+    if (previousEmail !== cached.newEmail) {
+      await Order.updateMany({ userEmail: previousEmail }, { userEmail: cached.newEmail });
+      await deleteCachedSession(`orders:${previousEmail}`);
+    }
+    await deleteCachedSession(`orders:${cached.newEmail}`);
     const nextSession = await updateSessionCache(req, user);
     res.json({ message: 'Email updated successfully', email: nextSession.email, isAdmin: nextSession.isAdmin });
   } catch (error) {
@@ -430,6 +457,10 @@ router.post('/wishlist/:productId', async (req: Request, res: Response): Promise
     const session = await getSession(req, res);
     if (!session) return;
 
+    if (!isValidObjectId(req.params.productId)) {
+      res.status(400).json({ error: 'Valid product id is required' });
+      return;
+    }
     const product = await Product.findById(req.params.productId);
     if (!product) {
       res.status(404).json({ error: 'Product not found' });
@@ -454,6 +485,10 @@ router.delete('/wishlist/:productId', async (req: Request, res: Response): Promi
     const session = await getSession(req, res);
     if (!session) return;
 
+    if (!isValidObjectId(req.params.productId)) {
+      res.status(400).json({ error: 'Valid product id is required' });
+      return;
+    }
     const user = await User.findByIdAndUpdate(
       session.id,
       { $pull: { wishlist: req.params.productId } },
