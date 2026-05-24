@@ -8,6 +8,7 @@ import authRoutes from './routes/auth';
 import productsRoutes from './routes/products';
 import ordersRoutes from './routes/orders';
 import userRoutes from './routes/user';
+import healthRoutes from './routes/health';
 import { connectRedis } from './services/redis';
 import { getEnv } from './config/env';
 import { apiNotFoundHandler } from './middleware/notFound';
@@ -51,6 +52,7 @@ app.use('/api/auth', rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
 }), authRoutes);
+app.use('/api/health', healthRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/user', userRoutes);
