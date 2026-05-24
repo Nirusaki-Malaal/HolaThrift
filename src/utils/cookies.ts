@@ -2,7 +2,8 @@ export const setCookie = (name: string, value: string, days: number = 1): void =
   const date = new Date();
   date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
   const expires = "; expires=" + date.toUTCString();
-  document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/; Secure; SameSite=Lax";
+  const maxAge = Math.floor(days * 24 * 60 * 60);
+  document.cookie = name + "=" + encodeURIComponent(value) + expires + "; max-age=" + maxAge + "; path=/; Secure; SameSite=Lax";
 };
 
 export const getCookie = (name: string): string | null => {

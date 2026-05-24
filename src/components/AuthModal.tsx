@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Smartphone, Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { AUTH_COOKIE_DAYS } from '@/constants/auth';
 import { setCookie } from '@/utils/cookies';
 import type { UserSession } from '@/types/user';
 
@@ -87,7 +88,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           if (data.requiresOtp) {
             setStep('verify');
           } else {
-            setCookie('auth_token', data.token, 1);
+            setCookie('auth_token', data.token, AUTH_COOKIE_DAYS);
             onSuccess(data.user);
             handleReset();
             onClose();
@@ -119,7 +120,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         return;
       }
 
-      setCookie('auth_token', data.token, 1);
+      setCookie('auth_token', data.token, AUTH_COOKIE_DAYS);
       onSuccess(data.user);
       handleReset();
       onClose();

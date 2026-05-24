@@ -5,6 +5,7 @@ import { User } from '../models/User';
 import Product from '../models/Product';
 import { sendOtpEmail } from '../services/mail';
 import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
+import { AUTH_SESSION_TTL_SECONDS } from '../config/auth';
 import { getBearerToken, getRequestSession, toUserSession } from '../utils/auth';
 import type { UserLike, UserSession } from '../utils/auth';
 
@@ -36,7 +37,7 @@ type AddressInput = Record<string, unknown>;
 const updateSessionCache = async (req: Request, user: UserLike): Promise<UserSession> => {
   const session = toUserSession(user);
   const token = getBearerToken(req);
-  if (token) await cacheSession(`session:${token}`, session);
+  if (token) await cacheSession(`session:${token}`, session, AUTH_SESSION_TTL_SECONDS);
   return session;
 };
 

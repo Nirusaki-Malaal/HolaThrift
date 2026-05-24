@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import { cacheSession, getCachedSession } from '../services/redis';
 import { isAdminEmail } from '../config/admin';
+import { AUTH_SESSION_TTL_SECONDS } from '../config/auth';
 import { getEnv } from '../config/env';
 
 export interface UserSession {
@@ -30,6 +31,10 @@ const createJwtSecret = (): string => {
 };
 
 export const JWT_SECRET = createJwtSecret();
+
+export const createAuthToken = (user: UserLike): string => {
+  return jwt.sign({ id: String(user._id || user.id || ''), email: String(user.email || '') }, JWT_SECRET, { expiresIn: AUTH_SESSION_TTL_SECONDS });
+};
 
 export const getBearerToken = (req: Request): string | null => {
   const authHeader = req.headers.authorization;
@@ -73,7 +78,7 @@ export const getSessionFromToken = async (token: string): Promise<UserSession | 
     const rawIsAdmin = rawCachedSession && typeof rawCachedSession === 'object' && 'isAdmin' in rawCachedSession
       ? (rawCachedSession as { isAdmin?: unknown }).isAdmin
       : undefined;
-    if (rawIsAdmin !== cachedSession.isAdmin) await cacheSession(`session:${token}`, cachedSession);
+    if (rawIsAdmin !== cachedSession.isAdmin) await cacheSession(`session:${token}`, cachedSession, AUTH_SESSION_TTL_SECONDS);
     return cachedSession;
   }
 
@@ -85,7 +90,7 @@ export const getSessionFromToken = async (token: string): Promise<UserSession | 
     if (!user) return null;
 
     const session = toUserSession(user);
-    await cacheSession(`session:${token}`, session);
+    await cacheSession(`session:${token}`, session, AUTH_SESSION_TTL_SECONDS);
     return session;
   } catch {
     return null;

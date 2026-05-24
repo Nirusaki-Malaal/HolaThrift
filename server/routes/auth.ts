@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { randomInt } from 'crypto';
 import { User } from '../models/User';
 import { sendWelcomeEmail, sendOtpEmail, sendLoginOtpEmail } from '../services/mail';
 import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
-import { JWT_SECRET, getBearerToken, getSessionFromToken, toUserSession } from '../utils/auth';
+import { AUTH_SESSION_TTL_SECONDS } from '../config/auth';
+import { createAuthToken, getBearerToken, getSessionFromToken, toUserSession } from '../utils/auth';
 
 const router = Router();
 
@@ -83,10 +83,10 @@ router.post('/verify-signup', async (req: Request, res: Response): Promise<void>
 
     await deleteCachedSession(`signup_otp:${normalizedEmail}`);
 
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+    const token = createAuthToken(user);
     const userSession = toUserSession(user);
     
-    await cacheSession(`session:${token}`, userSession);
+    await cacheSession(`session:${token}`, userSession, AUTH_SESSION_TTL_SECONDS);
     await sendWelcomeEmail(user.email, user.email);
 
     res.status(201).json({ token, user: userSession });
@@ -156,10 +156,10 @@ router.post('/verify-login', async (req: Request, res: Response): Promise<void> 
 
     await deleteCachedSession(`login_otp:${normalizedEmail}`);
 
-    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
+    const token = createAuthToken(user);
     const userSession = toUserSession(user);
 
-    await cacheSession(`session:${token}`, userSession);
+    await cacheSession(`session:${token}`, userSession, AUTH_SESSION_TTL_SECONDS);
 
     res.status(200).json({ token, user: userSession });
   } catch (error) {
