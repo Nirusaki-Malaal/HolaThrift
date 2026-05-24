@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { User, Shield, Package, Pencil, X, Check, Eye, EyeOff, Mail } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
+import SavedAddressForm from './profile/SavedAddressForm';
+import WishlistGrid from './profile/WishlistGrid';
+import { createEmptySavedAddress } from '@/types/user';
+import type { SavedAddress, UserSession } from '@/types/user';
+import type { ProductItem } from '@/types/product';
 
 interface ProfileProps {
-  readonly user: { email: string; phone: string; name?: string } | null;
+  readonly user: UserSession | null;
   readonly onLogout: () => void;
-  readonly onUserUpdate?: (user: any) => void;
+  readonly onUserUpdate?: (user: UserSession) => void;
   readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
 }
 
 export default function Profile({ user, onLogout, onUserUpdate, onToast }: ProfileProps): React.JSX.Element {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'account' | 'orders'>('account');
+  const [wishlist, setWishlist] = useState<ProductItem[]>([]);
+  const [wishlistLoading, setWishlistLoading] = useState<boolean>(true);
+  const [addressInput, setAddressInput] = useState<SavedAddress>(() => createEmptySavedAddress());
+  const [activeTab, setActiveTab] = useState<'account' | 'orders' | 'saved'>('account');
 
   const [activeTrackingId, setActiveTrackingId] = useState<string | null>(null);
   const [trackingDetails, setTrackingDetails] = useState<any | null>(null);
@@ -47,6 +55,40 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     };
     fetchHistory();
   }, []);
+
+  useEffect(() => {
+    const fetchAccountFeatures = async (): Promise<void> => {
+      const token = getCookie('auth_token');
+      if (!token) {
+        setWishlistLoading(false);
+        return;
+      }
+
+      try {
+        const [wishlistRes, addressRes] = await Promise.all([
+          fetch('/api/user/wishlist', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/user/address', { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+
+        if (wishlistRes.ok) setWishlist(await wishlistRes.json());
+        if (addressRes.ok) {
+          const savedAddress: SavedAddress | null = await addressRes.json();
+          setAddressInput(savedAddress || {
+            ...createEmptySavedAddress(),
+            name: user?.name || '',
+            phone: user?.phone || '',
+            email: user?.email || '',
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setWishlistLoading(false);
+      }
+    };
+
+    fetchAccountFeatures();
+  }, [user]);
 
   const handleTrackOrder = async (shipmentId: string) => {
     if (activeTrackingId === shipmentId) {
@@ -90,7 +132,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     try {
       const res = await fetch('/api/user/name', { method: 'PUT', headers, body: JSON.stringify({ name: nameInput.trim() }) });
       const data = await res.json();
-      if (res.ok) { onToast?.('success', 'Name updated'); onUserUpdate?.({ ...user, name: data.name }); cancelEdit(); }
+      if (res.ok && user) { onToast?.('success', 'Name updated'); onUserUpdate?.({ ...user, name: data.name }); cancelEdit(); }
       else onToast?.('error', data.error);
     } catch { onToast?.('error', 'Failed to update'); } finally { setSaving(false); }
   };
@@ -101,7 +143,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     try {
       const res = await fetch('/api/user/phone', { method: 'PUT', headers, body: JSON.stringify({ phone: phoneInput.trim() }) });
       const data = await res.json();
-      if (res.ok) { onToast?.('success', 'Phone updated'); onUserUpdate?.({ ...user, phone: data.phone }); cancelEdit(); }
+      if (res.ok && user) { onToast?.('success', 'Phone updated'); onUserUpdate?.({ ...user, phone: data.phone }); cancelEdit(); }
       else onToast?.('error', data.error);
     } catch { onToast?.('error', 'Failed to update'); } finally { setSaving(false); }
   };
@@ -123,7 +165,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     try {
       const res = await fetch('/api/user/verify-email-change', { method: 'POST', headers, body: JSON.stringify({ otp: emailOtp }) });
       const data = await res.json();
-      if (res.ok) { onToast?.('success', 'Email updated'); onUserUpdate?.({ ...user, email: data.email }); cancelEdit(); }
+      if (res.ok && user) { onToast?.('success', 'Email updated'); onUserUpdate?.({ ...user, email: data.email, isAdmin: data.isAdmin ?? user.isAdmin }); cancelEdit(); }
       else onToast?.('error', data.error);
     } catch { onToast?.('error', 'Verification failed'); } finally { setSaving(false); }
   };
@@ -139,6 +181,40 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
       if (res.ok) { onToast?.('success', 'Password updated'); cancelEdit(); }
       else onToast?.('error', data.error);
     } catch { onToast?.('error', 'Failed to update'); } finally { setSaving(false); }
+  };
+
+  const saveAddress = async () => {
+    if (!addressInput.name || !addressInput.email || !addressInput.phone || !addressInput.address || !addressInput.city || !addressInput.state || !addressInput.pincode) {
+      onToast?.('error', 'Complete all address fields');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/user/address', { method: 'PUT', headers, body: JSON.stringify(addressInput) });
+      const data = await res.json();
+      if (res.ok) { onToast?.('success', 'Default address saved'); setAddressInput(data.address); }
+      else onToast?.('error', data.error);
+    } catch {
+      onToast?.('error', 'Failed to save address');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeSavedItem = async (productId: string) => {
+    try {
+      const res = await fetch(`/api/user/wishlist/${productId}`, { method: 'DELETE', headers });
+      const data = await res.json();
+      if (res.ok) {
+        setWishlist(data);
+        onToast?.('success', 'Removed from saved items');
+      } else {
+        onToast?.('error', data.error);
+      }
+    } catch {
+      onToast?.('error', 'Could not update saved items');
+    }
   };
 
   const initials = (user?.name || user?.email || 'U').charAt(0).toUpperCase();
@@ -159,7 +235,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
         </div>
       </div>
 
-      <div className="flex bg-[#050505] p-1 rounded-xl border border-white/5 mb-8 max-w-xs">
+      <div className="flex bg-[#050505] p-1 rounded-xl border border-white/5 mb-8 max-w-md">
         <button
           onClick={() => setActiveTab('account')}
           className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${activeTab === 'account' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}
@@ -171,6 +247,12 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
           className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${activeTab === 'orders' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}
         >
           Orders
+        </button>
+        <button
+          onClick={() => setActiveTab('saved')}
+          className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${activeTab === 'saved' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}
+        >
+          Saved
         </button>
       </div>
 
@@ -248,6 +330,13 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
               </div>
             </div>
           </div>
+
+          <SavedAddressForm
+            address={addressInput}
+            saving={saving}
+            onChange={(nextAddress) => setAddressInput((currentAddress) => ({ ...currentAddress, ...nextAddress }))}
+            onSave={saveAddress}
+          />
 
           <div className="bg-[#111]/40 border border-white/5 rounded-3xl p-6">
             <div className="flex items-center gap-3 mb-6">
@@ -420,6 +509,10 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === 'saved' && (
+        <WishlistGrid products={wishlist} loading={wishlistLoading} onRemove={removeSavedItem} />
       )}
     </div>
   );

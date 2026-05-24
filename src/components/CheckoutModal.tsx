@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, AlertCircle } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
+import type { SavedAddress, UserSession } from '@/types/user';
 
 declare global {
   interface Window {
@@ -15,6 +16,7 @@ interface CheckoutModalProps {
   readonly onClose: () => void;
   readonly onPaymentSuccess: () => void;
   readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
+  readonly user: UserSession | null;
 }
 
 export default function CheckoutModal({
@@ -24,6 +26,7 @@ export default function CheckoutModal({
   onClose,
   onPaymentSuccess,
   onToast,
+  user,
 }: CheckoutModalProps): React.JSX.Element | null {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -32,11 +35,52 @@ export default function CheckoutModal({
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('');
   const [pincode, setPincode] = useState('');
+  const [saveAddress, setSaveAddress] = useState<boolean>(true);
 
   const [step, setStep] = useState<'address' | 'processing' | 'success'>('address');
   const [stage, setStage] = useState('');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setName(user?.name || '');
+    setPhone(user?.phone || '');
+    setEmail(user?.email || '');
+    setAddress('');
+    setCity('');
+    setStateName('');
+    setPincode('');
+    setSaveAddress(true);
+    setStep('address');
+    setError('');
+
+    const loadSavedAddress = async (): Promise<void> => {
+      const token = getCookie('auth_token');
+      if (!token) return;
+
+      try {
+        const res = await fetch('/api/user/address', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data: SavedAddress | null = await res.json();
+        if (!data) return;
+        setName(data.name || user?.name || '');
+        setPhone(data.phone || user?.phone || '');
+        setEmail(data.email || user?.email || '');
+        setAddress(data.address || '');
+        setCity(data.city || '');
+        setStateName(data.state || '');
+        setPincode(data.pincode || '');
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadSavedAddress();
+  }, [isOpen, user]);
 
   if (!isOpen) return null;
 
@@ -90,6 +134,17 @@ export default function CheckoutModal({
     }
 
     try {
+      if (saveAddress) {
+        await fetch('/api/user/address', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(shippingAddress),
+        });
+      }
+
       const res = await fetch('/api/orders/reserve', {
         method: 'POST',
         headers: {
@@ -255,6 +310,16 @@ export default function CheckoutModal({
                   className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
                 />
               </div>
+
+              <label className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#050505] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                <input
+                  type="checkbox"
+                  checked={saveAddress}
+                  onChange={(event) => setSaveAddress(event.target.checked)}
+                  className="h-4 w-4 accent-purple-500"
+                />
+                <span>Save as default delivery address</span>
+              </label>
 
               <button
                 type="submit"

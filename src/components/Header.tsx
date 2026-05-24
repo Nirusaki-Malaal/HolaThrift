@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Sparkles, User, Menu, X } from 'lucide-react';
+import type { UserSession } from '@/types/user';
 
 interface HeaderProps {
   readonly setActivePage: (page: string) => void;
   readonly onLoginClick: () => void;
-  readonly user: { email: string } | null;
+  readonly user: UserSession | null;
   readonly onLogout: () => void;
   readonly isAdmin: boolean;
 }

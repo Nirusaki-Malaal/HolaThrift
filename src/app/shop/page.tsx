@@ -13,13 +13,7 @@ import AdminPanel from '@/components/AdminPanel';
 import ToastContainer, { useToast } from '@/components/Toast';
 import { LOADING_MESSAGES } from '@/constants/loading';
 import { getCookie, deleteCookie } from '@/utils/cookies';
-
-interface UserSession {
-  email: string;
-  phone: string;
-  name?: string;
-  isAdmin?: boolean;
-}
+import type { UserSession } from '@/types/user';
 
 export default function Shop(): React.JSX.Element {
   const loadingMessages: readonly string[] = LOADING_MESSAGES;

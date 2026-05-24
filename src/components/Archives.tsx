@@ -1,19 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingBag, Search, X, Trash2, ArrowRight, AlertCircle } from 'lucide-react';
+import { ShoppingBag, Search, X, Trash2, ArrowRight, AlertCircle, Heart } from 'lucide-react';
+import { getCookie } from '@/utils/cookies';
 import CheckoutModal from './CheckoutModal';
 import ProductDetail from './ProductDetail';
-
-interface ProductItem {
-  _id: string;
-  name: string;
-  category: string;
-  price: number;
-  size: string;
-  condition: string;
-  image: string;
-  description?: string;
-  status?: string;
-}
+import type { ProductItem } from '@/types/product';
+import type { UserSession } from '@/types/user';
 
 interface CartItem {
   product: ProductItem;
@@ -21,12 +12,12 @@ interface CartItem {
 }
 
 interface ArchivesProps {
-  readonly user: { email: string; phone: string } | null;
+  readonly user: UserSession | null;
   readonly onLogout: () => void;
   readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
 }
 
-export default function Archives({ onToast }: ArchivesProps): React.JSX.Element {
+export default function Archives({ user, onToast }: ArchivesProps): React.JSX.Element {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -36,6 +27,7 @@ export default function Archives({ onToast }: ArchivesProps): React.JSX.Element 
   const [cartOpen, setCartOpen] = useState<boolean>(false);
   const [checkoutOpen, setCheckoutOpen] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(() => new Set());
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchProducts = useCallback(async (showLoading = false): Promise<void> => {
@@ -64,6 +56,29 @@ export default function Archives({ onToast }: ArchivesProps): React.JSX.Element 
     pollRef.current = setInterval(() => fetchProducts(false), 30000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [fetchProducts]);
+
+  const fetchWishlist = useCallback(async (): Promise<void> => {
+    const token = getCookie('auth_token');
+    if (!user || !token) {
+      setWishlistIds(new Set());
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/user/wishlist', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setWishlistIds(new Set(data.map((product: ProductItem) => product._id)));
+    } catch (err) {
+      console.error(err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchWishlist();
+  }, [fetchWishlist]);
 
   useEffect(() => {
     if (products.length > 0 && cart.length > 0) {
@@ -105,6 +120,41 @@ export default function Archives({ onToast }: ArchivesProps): React.JSX.Element 
 
   const handleRemoveFromCart = (productId: string): void => {
     saveCart(cart.filter((item) => item.product._id !== productId));
+  };
+
+  const handleToggleWishlist = async (product: ProductItem): Promise<void> => {
+    const token = getCookie('auth_token');
+    if (!user || !token) {
+      onToast?.('info', 'Sign in to save items');
+      return;
+    }
+
+    const isSaved = wishlistIds.has(product._id);
+    setWishlistIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (isSaved) nextIds.delete(product._id);
+      else nextIds.add(product._id);
+      return nextIds;
+    });
+
+    try {
+      const res = await fetch(`/api/user/wishlist/${product._id}`, {
+        method: isSaved ? 'DELETE' : 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update saved items');
+      setWishlistIds(new Set(data.map((item: ProductItem) => item._id)));
+      onToast?.('success', isSaved ? 'Removed from saved items' : 'Saved for later');
+    } catch (err) {
+      setWishlistIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        if (isSaved) nextIds.add(product._id);
+        else nextIds.delete(product._id);
+        return nextIds;
+      });
+      onToast?.('error', err instanceof Error ? err.message : 'Could not update saved items');
+    }
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
@@ -229,6 +279,7 @@ export default function Archives({ onToast }: ArchivesProps): React.JSX.Element 
           {filteredProducts.map((product) => {
             const isSold = product.status === 'sold';
             const isInCart = cart.some(item => item.product._id === product._id);
+            const isSaved = wishlistIds.has(product._id);
             return (
               <div
                 key={product._id}
@@ -243,6 +294,20 @@ export default function Archives({ onToast }: ArchivesProps): React.JSX.Element 
                   <span className="absolute top-3 right-3 px-2 py-0.5 bg-purple-500/90 text-white font-mono text-[8px] font-black rounded-md tracking-wider shadow-[0_0_8px_rgba(168,85,247,0.4)]">
                     SIZE {product.size}
                   </span>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleToggleWishlist(product);
+                    }}
+                    aria-label={isSaved ? `Remove ${product.name} from saved items` : `Save ${product.name}`}
+                    className={`absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-sm transition-all ${
+                      isSaved
+                        ? 'border-pink-400/40 bg-pink-500/20 text-pink-300'
+                        : 'border-white/10 bg-black/60 text-neutral-300 hover:text-white'
+                    }`}
+                  >
+                    <Heart size={15} className={isSaved ? 'fill-current' : ''} />
+                  </button>
                   {isSold && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                       <span className="text-red-400 font-black text-lg uppercase tracking-widest rotate-[-12deg] border-2 border-red-400/40 px-4 py-1 rounded-lg">SOLD</span>
@@ -368,6 +433,7 @@ export default function Archives({ onToast }: ArchivesProps): React.JSX.Element 
         onClose={() => setCheckoutOpen(false)}
         onPaymentSuccess={handlePaymentSuccess}
         onToast={onToast}
+        user={user}
       />
     </div>
   );

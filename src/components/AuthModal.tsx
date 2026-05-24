@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { X, Smartphone, Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { setCookie } from '@/utils/cookies';
+import type { UserSession } from '@/types/user';
 
 interface AuthModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onSuccess: (user: { email: string; phone: string; name?: string; isAdmin?: boolean }) => void;
+  readonly onSuccess: (user: UserSession) => void;
 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps): React.JSX.Element | null {
