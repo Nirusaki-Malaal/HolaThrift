@@ -51,7 +51,7 @@ export const sendOtpEmail = async (to: string, otp: string): Promise<boolean> =>
     await transporter.sendMail({
       from: `"Hola Thrift" <${user}>`,
       to,
-      subject: 'Verify your email - Hola Thrift ARCHIVES! 🔑',
+      subject: `Verify your email: ${otp} - Hola Thrift ARCHIVES! 🔑`,
       html: `
         <div style="background-color: #050505; color: #e5e5e5; font-family: sans-serif; padding: 40px; border-radius: 20px; max-width: 600px; margin: auto; border: 1px solid #333;">
           <h1 style="color: #ffffff; text-align: center; text-transform: uppercase; font-style: italic; letter-spacing: -1px; margin: 0 0 20px 0;">
@@ -60,11 +60,11 @@ export const sendOtpEmail = async (to: string, otp: string): Promise<boolean> =>
           <p style="font-size: 16px; line-height: 1.5; color: #a3a3a3; text-align: center; margin: 0 0 20px 0;">
             Use the verification code below to activate your account.
           </p>
-          <div style="background-color: #111111; padding: 25px; border-radius: 15px; border: 1px solid #222; text-align: center; margin: 30px 0;">
+          <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border: 1px solid #e5e5e5; text-align: center; margin: 30px 0;">
             <p style="font-size: 12px; margin: 0; color: #a855f7; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">
               Verification Code
             </p>
-            <p style="font-size: 36px; margin: 15px 0 0 0; color: #ffffff; font-family: monospace; font-weight: 900; letter-spacing: 6px;">
+            <p style="font-size: 36px; margin: 15px 0 0 0; color: #000000; font-family: monospace; font-weight: 900; letter-spacing: 6px;">
               ${otp}
             </p>
           </div>
@@ -86,7 +86,7 @@ export const sendLoginOtpEmail = async (to: string, otp: string): Promise<boolea
     await transporter.sendMail({
       from: `"Hola Thrift" <${user}>`,
       to,
-      subject: 'Your Hola Thrift Security Code - 2-Step Login! 🔑',
+      subject: `Your Hola Thrift Security Code: ${otp} - 2-Step Login! 🔑`,
       html: `
         <div style="background-color: #050505; color: #e5e5e5; font-family: sans-serif; padding: 40px; border-radius: 20px; max-width: 600px; margin: auto; border: 1px solid #333;">
           <h1 style="color: #ffffff; text-align: center; text-transform: uppercase; font-style: italic; letter-spacing: -1px; margin: 0 0 20px 0;">
@@ -95,11 +95,11 @@ export const sendLoginOtpEmail = async (to: string, otp: string): Promise<boolea
           <p style="font-size: 16px; line-height: 1.5; color: #a3a3a3; text-align: center; margin: 0 0 20px 0;">
             We noticed you're signing in! Enter the security code below to complete your login.
           </p>
-          <div style="background-color: #111111; padding: 25px; border-radius: 15px; border: 1px solid #222; text-align: center; margin: 30px 0;">
+          <div style="background-color: #ffffff; padding: 25px; border-radius: 15px; border: 1px solid #e5e5e5; text-align: center; margin: 30px 0;">
             <p style="font-size: 12px; margin: 0; color: #a855f7; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">
               Security Code
             </p>
-            <p style="font-size: 36px; margin: 15px 0 0 0; color: #ffffff; font-family: monospace; font-weight: 900; letter-spacing: 6px;">
+            <p style="font-size: 36px; margin: 15px 0 0 0; color: #000000; font-family: monospace; font-weight: 900; letter-spacing: 6px;">
               ${otp}
             </p>
           </div>
