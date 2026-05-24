@@ -39,6 +39,7 @@ export interface OrderRecord {
   invoiceUrl?: string;
   invoicePublicId?: string;
   invoiceGeneratedAt?: string;
+  invoiceEmailSentAt?: string;
 }
 
 export interface TrackingScan {

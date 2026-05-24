@@ -35,6 +35,7 @@ const orderSchema = new Schema({
   invoiceUrl: { type: String },
   invoicePublicId: { type: String },
   invoiceGeneratedAt: { type: Date },
+  invoiceEmailSentAt: { type: Date },
   lastTrackingStatus: { type: String },
   lastTrackingSyncAt: { type: Date },
   shippingStatus: { type: String, default: 'Created' },

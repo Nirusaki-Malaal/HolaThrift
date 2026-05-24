@@ -1,18 +1,48 @@
 import nodemailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { getEnv } from '../config/env';
+import { IntegrationConfigError } from './integrationError';
 
-const user = (process.env.GMAIL_USER || 'nirusaki3@gmail.com').replace(/"/g, '');
-const pass = (process.env.GMAIL_PASS || process.env.GMAIl_PASS || 'lpwr agrm zkdy yxbd').replace(/"/g, '');
+let cachedTransporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | null = null;
+let cachedMailKey = '';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user,
-    pass,
-  },
+const getMailConfig = () => ({
+  user: getEnv('GMAIL_USER') || 'nirusaki3@gmail.com',
+  pass: getEnv('GMAIL_PASS') || getEnv('GMAIl_PASS'),
 });
+
+const getTransporter = (): { transporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo>; user: string } => {
+  const config = getMailConfig();
+  if (!config.user || !config.pass) {
+    throw new IntegrationConfigError('Gmail credentials are not configured. Set GMAIL_USER and GMAIL_PASS.');
+  }
+
+  const mailKey = `${config.user}:${config.pass.length}`;
+  if (!cachedTransporter || mailKey !== cachedMailKey) {
+    cachedTransporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: config.user,
+        pass: config.pass,
+      },
+    });
+    cachedMailKey = mailKey;
+  }
+
+  return { transporter: cachedTransporter, user: config.user };
+};
+
+const logMailError = (error: unknown): void => {
+  if (error instanceof IntegrationConfigError) {
+    console.warn(error.message);
+    return;
+  }
+  console.error(error);
+};
 
 export const sendWelcomeEmail = async (to: string, email: string): Promise<boolean> => {
   try {
+    const { transporter, user } = getTransporter();
     await transporter.sendMail({
       from: `"Hola Thrift" <${user}>`,
       to,
@@ -41,13 +71,14 @@ export const sendWelcomeEmail = async (to: string, email: string): Promise<boole
     });
     return true;
   } catch (error) {
-    console.error(error);
+    logMailError(error);
     return false;
   }
 };
 
 export const sendOtpEmail = async (to: string, otp: string): Promise<boolean> => {
   try {
+    const { transporter, user } = getTransporter();
     await transporter.sendMail({
       from: `"Hola Thrift" <${user}>`,
       to,
@@ -76,13 +107,14 @@ export const sendOtpEmail = async (to: string, otp: string): Promise<boolean> =>
     });
     return true;
   } catch (error) {
-    console.error(error);
+    logMailError(error);
     return false;
   }
 };
 
 export const sendLoginOtpEmail = async (to: string, otp: string): Promise<boolean> => {
   try {
+    const { transporter, user } = getTransporter();
     await transporter.sendMail({
       from: `"Hola Thrift" <${user}>`,
       to,
@@ -111,8 +143,74 @@ export const sendLoginOtpEmail = async (to: string, otp: string): Promise<boolea
     });
     return true;
   } catch (error) {
-    console.error(error);
+    logMailError(error);
     return false;
   }
 };
 
+interface InvoiceEmailOrder {
+  transactionId: string;
+  total: number;
+  invoiceUrl?: string;
+  shippingAddress?: {
+    name?: string;
+    email?: string;
+  };
+}
+
+const escapeHtml = (value: unknown): string => {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+export const sendOrderInvoiceEmail = async (to: string, order: InvoiceEmailOrder): Promise<boolean> => {
+  if (!order.invoiceUrl) return false;
+
+  try {
+    const { transporter, user } = getTransporter();
+    const customerName = order.shippingAddress?.name || 'Customer';
+
+    await transporter.sendMail({
+      from: `"Hola Thrift" <${user}>`,
+      to,
+      subject: `Invoice for your Hola Thrift order ${order.transactionId}`,
+      html: `
+        <div style="background-color: #f6f7fb; color: #111827; font-family: Arial, sans-serif; padding: 36px; max-width: 640px; margin: auto; border-radius: 20px; border: 1px solid #e5e7eb;">
+          <h1 style="margin: 0; font-size: 28px; letter-spacing: -1px; text-transform: uppercase;">
+            HOLA<span style="color: #7c3aed;">THRIFT</span>
+          </h1>
+          <p style="margin: 20px 0 0 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
+            Hi ${escapeHtml(customerName)}, your order has been confirmed. Your professional invoice JPG is attached and can also be viewed from the button below.
+          </p>
+          <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 22px; margin: 26px 0;">
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">Order Reference</p>
+            <p style="margin: 0; color: #111827; font-size: 18px; font-weight: 900;">${escapeHtml(order.transactionId)}</p>
+            <p style="margin: 18px 0 8px 0; color: #6b7280; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">Amount Paid</p>
+            <p style="margin: 0; color: #111827; font-size: 18px; font-weight: 900;">INR ${Number(order.total || 0).toLocaleString('en-IN')}</p>
+          </div>
+          <a href="${escapeHtml(order.invoiceUrl)}" style="display: inline-block; background: #111827; color: #ffffff; padding: 14px 18px; border-radius: 12px; text-decoration: none; font-size: 12px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;">
+            View Invoice JPG
+          </a>
+          <p style="font-size: 11px; color: #6b7280; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 18px;">
+            Thank you for shopping at holathrift.in.
+          </p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: `hola-invoice-${order.transactionId}.jpg`,
+          path: order.invoiceUrl,
+          contentType: 'image/jpeg',
+        },
+      ],
+    });
+    return true;
+  } catch (error) {
+    logMailError(error);
+    return false;
+  }
+};
