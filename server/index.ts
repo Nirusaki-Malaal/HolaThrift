@@ -10,6 +10,7 @@ import ordersRoutes from './routes/orders';
 import userRoutes from './routes/user';
 import { connectRedis } from './services/redis';
 import { getEnv } from './config/env';
+import { apiNotFoundHandler } from './middleware/notFound';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -52,6 +53,7 @@ app.use('/api/auth', rateLimit({
 app.use('/api/products', productsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api', apiNotFoundHandler);
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
