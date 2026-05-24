@@ -10,6 +10,7 @@ import { AUTH_SESSION_TTL_SECONDS } from '../config/auth';
 import { isAdminEmail } from '../config/admin';
 import { getBearerToken, getRequestSession, isAdminRequest, toUserSession } from '../utils/auth';
 import { cleanEmail, cleanLongText, cleanPhone, cleanText, isRecord, isValidEmail, isValidObjectId } from '../utils/validation';
+import { accountMutationRateLimit, adminEmailRateLimit, adminMutationRateLimit, wishlistRateLimit } from '../middleware/rateLimits';
 import type { UserLike, UserSession } from '../utils/auth';
 
 const router = Router();
@@ -124,7 +125,7 @@ router.get('/admin/users', async (req: Request, res: Response): Promise<void> =>
   }
 });
 
-router.patch('/admin/users/:id', async (req: Request, res: Response): Promise<void> => {
+router.patch('/admin/users/:id', adminMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     if (!await getAdminAccess(req, res)) return;
     if (!isValidObjectId(req.params.id)) {
@@ -175,7 +176,7 @@ router.patch('/admin/users/:id', async (req: Request, res: Response): Promise<vo
   }
 });
 
-router.delete('/admin/users/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete('/admin/users/:id', adminMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getRequestSession(req);
     if (!session?.isAdmin) {
@@ -203,7 +204,7 @@ router.delete('/admin/users/:id', async (req: Request, res: Response): Promise<v
   }
 });
 
-router.post('/admin/send-email', async (req: Request, res: Response): Promise<void> => {
+router.post('/admin/send-email', adminEmailRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     if (!await getAdminAccess(req, res)) return;
 
@@ -249,7 +250,7 @@ router.post('/admin/send-email', async (req: Request, res: Response): Promise<vo
   }
 });
 
-router.put('/name', async (req: Request, res: Response): Promise<void> => {
+router.put('/name', accountMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getSession(req, res);
     if (!session) return;
@@ -273,7 +274,7 @@ router.put('/name', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.put('/phone', async (req: Request, res: Response): Promise<void> => {
+router.put('/phone', accountMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getSession(req, res);
     if (!session) return;
@@ -303,7 +304,7 @@ router.put('/phone', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.put('/password', async (req: Request, res: Response): Promise<void> => {
+router.put('/password', accountMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getSession(req, res);
     if (!session) return;
@@ -340,7 +341,7 @@ router.put('/password', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.put('/email', async (req: Request, res: Response): Promise<void> => {
+router.put('/email', accountMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getSession(req, res);
     if (!session) return;
@@ -366,7 +367,7 @@ router.put('/email', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.post('/verify-email-change', async (req: Request, res: Response): Promise<void> => {
+router.post('/verify-email-change', accountMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getSession(req, res);
     if (!session) return;
@@ -420,7 +421,7 @@ router.get('/address', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.put('/address', async (req: Request, res: Response): Promise<void> => {
+router.put('/address', accountMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getSession(req, res);
     if (!session) return;
@@ -452,7 +453,7 @@ router.get('/wishlist', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.post('/wishlist/:productId', async (req: Request, res: Response): Promise<void> => {
+router.post('/wishlist/:productId', wishlistRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getSession(req, res);
     if (!session) return;
@@ -480,7 +481,7 @@ router.post('/wishlist/:productId', async (req: Request, res: Response): Promise
   }
 });
 
-router.delete('/wishlist/:productId', async (req: Request, res: Response): Promise<void> => {
+router.delete('/wishlist/:productId', wishlistRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const session = await getSession(req, res);
     if (!session) return;

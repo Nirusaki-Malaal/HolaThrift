@@ -8,6 +8,7 @@ import { cacheSession, getCachedSession, deleteCachedSession, redisClient } from
 import { normalizeInventory } from '../services/inventory';
 import { isAdminRequest } from '../utils/auth';
 import { cleanLongText, cleanText, isRecord, isValidObjectId } from '../utils/validation';
+import { adminMutationRateLimit, uploadRateLimit } from '../middleware/rateLimits';
 
 const router = Router();
 
@@ -127,7 +128,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post('/', adminMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const isadmin = await isAdminRequest(req);
     if (!isadmin) {
@@ -150,7 +151,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+router.put('/:id', adminMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const isadmin = await isAdminRequest(req);
     if (!isadmin) {
@@ -191,7 +192,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+router.delete('/:id', adminMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const isadmin = await isAdminRequest(req);
     if (!isadmin) {
@@ -215,7 +216,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.post('/upload', async (req: Request, res: Response): Promise<void> => {
+router.post('/upload', uploadRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const isadmin = await isAdminRequest(req);
     if (!isadmin) {

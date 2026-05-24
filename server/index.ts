@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth';
 import productsRoutes from './routes/products';
@@ -13,6 +12,7 @@ import { connectRedis } from './services/redis';
 import { getEnv } from './config/env';
 import { apiNotFoundHandler } from './middleware/notFound';
 import { apiErrorHandler } from './middleware/errorHandler';
+import { apiRateLimit, authRateLimit } from './middleware/rateLimits';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,18 +40,8 @@ app.use(cors({
 app.use(express.json({ limit: bodyLimit }));
 app.use(express.urlencoded({ limit: bodyLimit, extended: true }));
 
-app.use('/api', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 500,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-}));
-app.use('/api/auth', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 30,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-}), authRoutes);
+app.use('/api', apiRateLimit);
+app.use('/api/auth', authRateLimit, authRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/orders', ordersRoutes);

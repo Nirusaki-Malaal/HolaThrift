@@ -10,6 +10,7 @@ import { sendOrderInvoiceEmail } from '../services/mail';
 import { isIntegrationConfigError } from '../services/integrationError';
 import { getRequestSession, isAdminRequest } from '../utils/auth';
 import { cleanEmail, cleanLongText, cleanPhone, cleanText, isRecord, isValidEmail, isValidObjectId } from '../utils/validation';
+import { checkoutRateLimit, serviceabilityRateLimit, trackingRateLimit } from '../middleware/rateLimits';
 import type { UserSession } from '../utils/auth';
 
 const router = Router();
@@ -199,7 +200,7 @@ const shouldLogError = (error: unknown): boolean => {
   return !isIntegrationConfigError(error) && !(error instanceof RequestValidationError);
 };
 
-router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
+router.post('/reserve', checkoutRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await getSessionUser(req);
     if (!user) {
@@ -323,7 +324,7 @@ router.post('/reserve', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-router.get('/serviceability/:pincode', async (req: Request, res: Response): Promise<void> => {
+router.get('/serviceability/:pincode', serviceabilityRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const pincode = String(req.params.pincode).replace(/\D/g, '');
     if (pincode.length !== 6) {
@@ -350,7 +351,7 @@ router.get('/serviceability/:pincode', async (req: Request, res: Response): Prom
   }
 });
 
-router.post('/verify-payment', async (req: Request, res: Response): Promise<void> => {
+router.post('/verify-payment', checkoutRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await getSessionUser(req);
     if (!user) {
@@ -467,7 +468,7 @@ router.post('/verify-payment', async (req: Request, res: Response): Promise<void
   }
 });
 
-router.get('/track/:shipmentId', async (req: Request, res: Response): Promise<void> => {
+router.get('/track/:shipmentId', trackingRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await getSessionUser(req);
     if (!user) {
