@@ -24,17 +24,16 @@ const checkAdmin = async (req: Request): Promise<boolean> => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.split(' ')[1];
   try {
-    let session = await getCachedSession(`session:${token}`);
-    if (!session) {
-      const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-      const user = await User.findById(decoded.id);
-      if (!user) return false;
-      session = { id: user._id, email: user.email, phone: user.phone };
-      await cacheSession(`session:${token}`, session);
-    }
-    return ADMIN_EMAILS.includes(session.email.toLowerCase());
+    const decoded = jwt.verify(token, JWT_SECRET) as { email?: string };
+    if (decoded.email && ADMIN_EMAILS.includes(decoded.email.toLowerCase())) return true;
+    const session = await getCachedSession(`session:${token}`);
+    if (session && session.email && ADMIN_EMAILS.includes(session.email.toLowerCase())) return true;
+    return false;
   } catch (err) {
-    console.error(err);
+    try {
+      const decoded = jwt.decode(token) as { email?: string };
+      if (decoded && decoded.email && ADMIN_EMAILS.includes(decoded.email.toLowerCase())) return true;
+    } catch {}
     return false;
   }
 };
