@@ -1,57 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Package, Pencil, X, Check, Eye, EyeOff, Mail } from 'lucide-react';
+import { User, Shield, Package, Pencil, X, Check, Eye, EyeOff, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import SavedAddressForm from './profile/SavedAddressForm';
 import WishlistGrid from './profile/WishlistGrid';
+import OrderDetailsPanel from './profile/OrderDetailsPanel';
 import { createEmptySavedAddress } from '@/types/user';
 import type { SavedAddress, UserSession } from '@/types/user';
 import type { ProductItem } from '@/types/product';
+import type { OrderRecord, TrackingPayload, TrackingResponse, TrackingScan } from '@/types/order';
 
 interface ProfileProps {
   readonly user: UserSession | null;
   readonly onLogout: () => void;
   readonly onUserUpdate?: (user: UserSession) => void;
   readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
-}
-
-interface OrderItem {
-  name: string;
-  quantity: number;
-}
-
-interface OrderRecord {
-  _id: string;
-  transactionId: string;
-  createdAt: string;
-  items: OrderItem[];
-  total: number;
-  paymentProvider?: string;
-  paymentStatus?: string;
-  cashfreeOrderStatus?: string;
-  shippingStatus?: string;
-  lastTrackingStatus?: string;
-  shiprocketShipmentId?: string;
-  awbCode?: string;
-  courierName?: string;
-  estimatedDelivery?: string;
-}
-
-interface TrackingScan {
-  date: string;
-  location: string;
-  activity: string;
-}
-
-interface TrackingPayload {
-  awbCode?: string;
-  currentStatus?: string;
-  courierName?: string;
-  estimatedDelivery?: string;
-  scans?: TrackingScan[];
-}
-
-interface TrackingResponse {
-  tracking?: TrackingPayload;
 }
 
 const getTrackingPayload = (details: TrackingResponse | TrackingPayload | null): TrackingPayload | null => {
@@ -71,6 +33,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
   const [activeTrackingId, setActiveTrackingId] = useState<string | null>(null);
   const [trackingDetails, setTrackingDetails] = useState<TrackingResponse | TrackingPayload | null>(null);
   const [loadingTrack, setLoadingTrack] = useState<boolean>(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState<string>(user?.name || '');
@@ -155,6 +118,10 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     } finally {
       setLoadingTrack(false);
     }
+  };
+
+  const toggleOrderDetails = (orderId: string): void => {
+    setExpandedOrderId((currentOrderId) => currentOrderId === orderId ? null : orderId);
   };
 
   const cancelEdit = () => {
@@ -477,6 +444,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                 const trackingId = order.shiprocketShipmentId || order.awbCode || '';
                 const hasShipping = Boolean(trackingId);
                 const isTracking = activeTrackingId === trackingId;
+                const isExpanded = expandedOrderId === order._id;
                 return (
                   <div key={order._id} className="motion-card bg-[#050505] border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all space-y-4">
                     <div className="flex justify-between items-start">
@@ -502,9 +470,9 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                       </div>
                     </div>
 
-                    {hasShipping && (
-                      <div className="border-t border-white/5 pt-4 flex flex-col space-y-3">
-                        <div className="flex items-center justify-between">
+                    <div className="border-t border-white/5 pt-4 flex flex-col space-y-3">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        {hasShipping ? (
                           <div className="flex flex-col">
                             <span className="text-neutral-500 font-mono text-[8px] uppercase tracking-widest">Courier Partner</span>
                             <span className="text-white text-[10px] font-bold uppercase tracking-wider">{order.courierName || 'Shiprocket Express'}</span>
@@ -512,61 +480,80 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
                               <span className="text-neutral-500 font-mono text-[8px] uppercase tracking-widest mt-1">ETA {order.estimatedDelivery}</span>
                             )}
                           </div>
-                          <button
-                            onClick={() => handleTrackOrder(trackingId)}
-                            className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/25 border border-purple-500/20 text-purple-400 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
-                          >
-                            {isTracking ? 'Hide Tracking' : 'Track Order'}
-                          </button>
-                        </div>
-
-                        {isTracking && (
-                          <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-4 space-y-3 animate-fade-in text-neutral-400 text-[10px]">
-                            {loadingTrack ? (
-                              <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-widest py-4 animate-pulse">
-                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping"></div>
-                                <span>Querying courier server...</span>
-                              </div>
-                            ) : (() => {
-                              const track = getTrackingPayload(trackingDetails);
-                              const scans: TrackingScan[] = track?.scans || [];
-                              return (
-                                <div className="space-y-4">
-                                  <div className="flex justify-between items-center pb-2 border-b border-white/5 font-mono text-[9px] uppercase tracking-widest">
-                                    <span>AWB: {track?.awbCode || order.awbCode || 'Awaiting Sync'}</span>
-                                    <span className="text-purple-400 font-bold">{track?.currentStatus || order.lastTrackingStatus || 'In Transit'}</span>
-                                  </div>
-                                  {(track?.courierName || track?.estimatedDelivery) && (
-                                    <div className="grid grid-cols-1 gap-2 rounded-xl border border-white/5 bg-[#050505] p-3 font-mono text-[8px] uppercase tracking-widest text-neutral-500 md:grid-cols-2">
-                                      <span>Courier: <span className="text-neutral-300">{track?.courierName || order.courierName || 'Shiprocket'}</span></span>
-                                      <span>ETA: <span className="text-neutral-300">{track?.estimatedDelivery || order.estimatedDelivery || 'Syncing'}</span></span>
-                                    </div>
-                                  )}
-                                  {scans.length > 0 ? (
-                                    <div className="relative pl-4 border-l border-white/10 space-y-4 my-2">
-                                      {scans.map((scan, idx) => (
-                                        <div key={idx} className="relative">
-                                          <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-purple-500 border-2 border-black"></div>
-                                          <div className="flex flex-col">
-                                            <span className="text-white font-bold tracking-wide uppercase text-[9px]">{scan.activity}</span>
-                                            <span className="text-neutral-500 text-[8px] font-mono mt-0.5">{scan.date} · {scan.location}</span>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col py-3 text-center font-mono uppercase tracking-widest text-[9px] text-neutral-500 space-y-1">
-                                      <span className="text-white font-bold">Shipment Manifested</span>
-                                      <span>In transit to carrier warehouse</span>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
+                        ) : (
+                          <div className="flex flex-col">
+                            <span className="text-neutral-500 font-mono text-[8px] uppercase tracking-widest">Shipment</span>
+                            <span className="text-white text-[10px] font-bold uppercase tracking-wider">{order.shippingStatus || 'Processing'}</span>
                           </div>
                         )}
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => toggleOrderDetails(order._id)}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-white/5 hover:bg-white hover:text-black border border-white/10 text-neutral-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                          >
+                            <span>{isExpanded ? 'Hide Details' : 'View Details'}</span>
+                            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                          </button>
+                          {hasShipping && (
+                            <button
+                              onClick={() => handleTrackOrder(trackingId)}
+                              className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/25 border border-purple-500/20 text-purple-400 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                            >
+                              {isTracking ? 'Hide Tracking' : 'Track Order'}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    )}
+
+                      {isExpanded && <OrderDetailsPanel order={order} />}
+
+                      {isTracking && (
+                        <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-4 space-y-3 animate-fade-in text-neutral-400 text-[10px]">
+                          {loadingTrack ? (
+                            <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-widest py-4 animate-pulse">
+                              <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping"></div>
+                              <span>Querying courier server...</span>
+                            </div>
+                          ) : (() => {
+                            const track = getTrackingPayload(trackingDetails);
+                            const scans: TrackingScan[] = track?.scans || [];
+                            return (
+                              <div className="space-y-4">
+                                <div className="flex justify-between items-center pb-2 border-b border-white/5 font-mono text-[9px] uppercase tracking-widest">
+                                  <span>AWB: {track?.awbCode || order.awbCode || 'Awaiting Sync'}</span>
+                                  <span className="text-purple-400 font-bold">{track?.currentStatus || order.lastTrackingStatus || 'In Transit'}</span>
+                                </div>
+                                {(track?.courierName || track?.estimatedDelivery) && (
+                                  <div className="grid grid-cols-1 gap-2 rounded-xl border border-white/5 bg-[#050505] p-3 font-mono text-[8px] uppercase tracking-widest text-neutral-500 md:grid-cols-2">
+                                    <span>Courier: <span className="text-neutral-300">{track?.courierName || order.courierName || 'Shiprocket'}</span></span>
+                                    <span>ETA: <span className="text-neutral-300">{track?.estimatedDelivery || order.estimatedDelivery || 'Syncing'}</span></span>
+                                  </div>
+                                )}
+                                {scans.length > 0 ? (
+                                  <div className="relative pl-4 border-l border-white/10 space-y-4 my-2">
+                                    {scans.map((scan, idx) => (
+                                      <div key={idx} className="relative">
+                                        <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-purple-500 border-2 border-black"></div>
+                                        <div className="flex flex-col">
+                                          <span className="text-white font-bold tracking-wide uppercase text-[9px]">{scan.activity}</span>
+                                          <span className="text-neutral-500 text-[8px] font-mono mt-0.5">{scan.date} · {scan.location}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col py-3 text-center font-mono uppercase tracking-widest text-[9px] text-neutral-500 space-y-1">
+                                    <span className="text-white font-bold">Shipment Manifested</span>
+                                    <span>In transit to carrier warehouse</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
