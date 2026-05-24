@@ -14,6 +14,10 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'account' | 'orders'>('account');
 
+  const [activeTrackingId, setActiveTrackingId] = useState<string | null>(null);
+  const [trackingDetails, setTrackingDetails] = useState<any | null>(null);
+  const [loadingTrack, setLoadingTrack] = useState<boolean>(false);
+
   const [editingField, setEditingField] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState<string>(user?.name || '');
   const [phoneInput, setPhoneInput] = useState<string>(user?.phone || '');
@@ -43,6 +47,27 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     };
     fetchHistory();
   }, []);
+
+  const handleTrackOrder = async (shipmentId: string) => {
+    if (activeTrackingId === shipmentId) {
+      setActiveTrackingId(null);
+      setTrackingDetails(null);
+      return;
+    }
+    setActiveTrackingId(shipmentId);
+    setLoadingTrack(true);
+    setTrackingDetails(null);
+    try {
+      const res = await fetch(`/api/orders/track/${shipmentId}`, { headers });
+      if (res.ok) {
+        setTrackingDetails(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingTrack(false);
+    }
+  };
 
   const cancelEdit = () => {
     setEditingField(null);
@@ -312,23 +337,86 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
               <span className="text-neutral-600 text-[9px] font-mono uppercase tracking-widest">Your purchase history will appear here</span>
             </div>
           ) : (
-            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {orders.map((order) => (
-                <div key={order._id} className="bg-[#050505] border border-white/5 rounded-2xl p-4 flex justify-between items-center hover:border-white/10 transition-colors">
-                  <div>
-                    <span className="text-neutral-500 font-mono text-[9px] uppercase tracking-widest block mb-1">
-                      {order.transactionId} · {new Date(order.createdAt).toLocaleDateString()}
-                    </span>
-                    <div className="text-white font-bold text-xs uppercase truncate max-w-xs">
-                      {order.items.map((it: any) => `${it.name} (x${it.quantity})`).join(', ')}
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+              {orders.map((order) => {
+                const hasShipping = !!order.shiprocketShipmentId;
+                const isTracking = activeTrackingId === order.shiprocketShipmentId;
+                return (
+                  <div key={order._id} className="bg-[#050505] border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-neutral-500 font-mono text-[9px] uppercase tracking-widest block mb-1">
+                          {order.transactionId} · {new Date(order.createdAt).toLocaleDateString()}
+                        </span>
+                        <div className="text-white font-bold text-xs uppercase truncate max-w-xs md:max-w-md">
+                          {order.items.map((it: any) => `${it.name} (x${it.quantity})`).join(', ')}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-white font-black text-sm block">₹{order.total}</span>
+                        <span className="text-emerald-400 font-mono text-[8px] font-bold uppercase tracking-widest">COMPLETED</span>
+                      </div>
                     </div>
+
+                    {hasShipping && (
+                      <div className="border-t border-white/5 pt-4 flex flex-col space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-neutral-500 font-mono text-[8px] uppercase tracking-widest">Courier Partner</span>
+                            <span className="text-white text-[10px] font-bold uppercase tracking-wider">Shiprocket Express</span>
+                          </div>
+                          <button
+                            onClick={() => handleTrackOrder(order.shiprocketShipmentId)}
+                            className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/25 border border-purple-500/20 text-purple-400 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                          >
+                            {isTracking ? 'Hide Tracking' : 'Track Order'}
+                          </button>
+                        </div>
+
+                        {isTracking && (
+                          <div className="bg-[#0a0a0a] border border-white/5 rounded-2xl p-4 space-y-3 animate-fade-in text-neutral-400 text-[10px]">
+                            {loadingTrack ? (
+                              <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-widest py-4 animate-pulse">
+                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping"></div>
+                                <span>Querying courier server...</span>
+                              </div>
+                            ) : (() => {
+                              const track = trackingDetails?.tracking_data?.shipment_track?.[0];
+                              const scans = track?.scans || [];
+                              return (
+                                <div className="space-y-4">
+                                  <div className="flex justify-between items-center pb-2 border-b border-white/5 font-mono text-[9px] uppercase tracking-widest">
+                                    <span>AWB: {order.awbCode || track?.awb_code || 'Awaiting Sync'}</span>
+                                    <span className="text-purple-400 font-bold">{track?.current_status || 'In Transit'}</span>
+                                  </div>
+                                  {scans.length > 0 ? (
+                                    <div className="relative pl-4 border-l border-white/10 space-y-4 my-2">
+                                      {scans.map((scan: any, idx: number) => (
+                                        <div key={idx} className="relative">
+                                          <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-purple-500 border-2 border-black"></div>
+                                          <div className="flex flex-col">
+                                            <span className="text-white font-bold tracking-wide uppercase text-[9px]">{scan.activity}</span>
+                                            <span className="text-neutral-500 text-[8px] font-mono mt-0.5">{scan.date} · {scan.location}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col py-3 text-center font-mono uppercase tracking-widest text-[9px] text-neutral-500 space-y-1">
+                                      <span className="text-white font-bold">Shipment Manifested</span>
+                                      <span>In transit to carrier warehouse</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <span className="text-white font-black text-sm block">₹{order.total}</span>
-                    <span className="text-emerald-400 font-mono text-[8px] font-bold uppercase tracking-widest">COMPLETED</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

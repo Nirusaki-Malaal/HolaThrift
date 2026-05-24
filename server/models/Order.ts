@@ -13,6 +13,20 @@ const orderSchema = new Schema({
   total: { type: Number, required: true },
   status: { type: String, default: 'completed' },
   transactionId: { type: String, required: true },
+  shippingAddress: {
+    name: { type: String, required: true },
+    phone: { type: String, required: true },
+    email: { type: String, required: true },
+    address: { type: String, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    pincode: { type: String, required: true },
+  },
+  cashfreeOrderId: { type: String },
+  shiprocketOrderId: { type: String },
+  shiprocketShipmentId: { type: String },
+  awbCode: { type: String },
+  shippingStatus: { type: String, default: 'Created' },
   createdAt: { type: Date, default: Date.now },
 });
 

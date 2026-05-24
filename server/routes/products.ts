@@ -3,7 +3,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
 import Product from '../models/Product';
-import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
+import { cacheSession, getCachedSession, deleteCachedSession, redisClient } from '../services/redis';
 
 const router = Router();
 
@@ -26,55 +26,72 @@ const checkAdmin = async (req: Request): Promise<boolean> => {
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
+    let products;
     const cached = await getCachedSession('products:all');
     if (cached) {
-      res.json(cached);
-      return;
-    }
-    let products = await Product.find({});
-    if (products.length === 0) {
-      const defaultProducts = [
-        {
-          name: "Vintage Canvas Work Jacket",
-          category: "Outerwear",
-          price: 3499,
-          size: "L",
-          condition: "9/10 Excellent Fade",
-          image: "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=500&q=80",
-          description: "Rugged vintage canvas jacket with beautiful natural washing and corduroy collar details.",
-        },
-        {
-          name: "Classic Brown Collar Sweatshirt",
-          category: "Tops",
-          price: 1899,
-          size: "M",
-          condition: "10/10 Mint",
-          image: "https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=500&q=80",
-          description: "Comfortable heavyweight rib collar sweat top in rich chocolate brown earth tones.",
-        },
-        {
-          name: "Emerald Ribbed Johnny Collar",
-          category: "Tops",
-          price: 1599,
-          size: "S",
-          condition: "Deadstock",
-          image: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&q=80",
-          description: "Fine knit ribbed sweater polo with relaxed open johnny collar neck and vintage cuffs.",
-        },
-        {
-          name: "Boxy Striped Rugby Polo",
-          category: "Tops",
-          price: 1299,
-          size: "XL",
-          condition: "8.5/10 Very Good",
-          image: "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=500&q=80",
-          description: "Retro wide stripe rugby shirt featuring traditional canvas white collar and relaxed fit.",
-        }
-      ];
-      await Product.insertMany(defaultProducts);
+      products = cached;
+    } else {
       products = await Product.find({});
+      if (products.length === 0) {
+        const defaultProducts = [
+          {
+            name: "Vintage Canvas Work Jacket",
+            category: "Outerwear",
+            price: 3499,
+            size: "L",
+            condition: "9/10 Excellent Fade",
+            image: "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=500&q=80",
+            description: "Rugged vintage canvas jacket with beautiful natural washing and corduroy collar details.",
+          },
+          {
+            name: "Classic Brown Collar Sweatshirt",
+            category: "Tops",
+            price: 1899,
+            size: "M",
+            condition: "10/10 Mint",
+            image: "https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=500&q=80",
+            description: "Comfortable heavyweight rib collar sweat top in rich chocolate brown earth tones.",
+          },
+          {
+            name: "Emerald Ribbed Johnny Collar",
+            category: "Tops",
+            price: 1599,
+            size: "S",
+            condition: "Deadstock",
+            image: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&q=80",
+            description: "Fine knit ribbed sweater polo with relaxed open johnny collar neck and vintage cuffs.",
+          },
+          {
+            name: "Boxy Striped Rugby Polo",
+            category: "Tops",
+            price: 1299,
+            size: "XL",
+            condition: "8.5/10 Very Good",
+            image: "https://images.unsplash.com/photo-1603252109303-2751441dd157?w=500&q=80",
+            description: "Retro wide stripe rugby shirt featuring traditional canvas white collar and relaxed fit.",
+          }
+        ];
+        await Product.insertMany(defaultProducts);
+        products = await Product.find({});
+      }
     }
-    await cacheSession('products:all', products, 86400);
+
+    let modified = false;
+    for (let i = 0; i < products.length; i++) {
+      if (products[i].status === 'reserved') {
+        const key = `reservation:product:${products[i]._id}`;
+        const hasRes = redisClient.isOpen ? await redisClient.exists(key) : 0;
+        if (!hasRes) {
+          await Product.findByIdAndUpdate(products[i]._id, { status: 'available' });
+          products[i].status = 'available';
+          modified = true;
+        }
+      }
+    }
+
+    if (modified || !cached) {
+      await cacheSession('products:all', products, 86400);
+    }
     res.json(products);
   } catch (error) {
     console.error(error);

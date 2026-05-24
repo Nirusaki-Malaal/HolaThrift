@@ -111,38 +111,9 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
   const cartTotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   const cartItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  const handlePaymentSuccess = async (txnId: string): Promise<void> => {
-    const token = getCookie('auth_token');
-    if (!token) return;
-
-    try {
-      const orderItems = cart.map((item) => ({
-        productId: item.product._id,
-        name: item.product.name,
-        price: item.product.price,
-        quantity: item.quantity,
-      }));
-
-      const res = await fetch('/api/orders/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ items: orderItems, total: cartTotal, transactionId: txnId }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        onToast?.('error', data.error || 'Checkout failed');
-        await fetchProducts(false);
-        return;
-      }
-
-      saveCart([]);
-      onToast?.('success', 'Order placed successfully!');
-      await fetchProducts(false);
-    } catch (err) {
-      console.error(err);
-      onToast?.('error', 'Checkout failed');
-    }
+  const handlePaymentSuccess = async (): Promise<void> => {
+    saveCart([]);
+    await fetchProducts(false);
   };
 
   const categories = ['All', ...new Set(products.map(p => p.category))];
@@ -389,8 +360,15 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
       <CheckoutModal
         isOpen={checkoutOpen}
         total={cartTotal}
+        items={cart.map((item) => ({
+          productId: item.product._id,
+          name: item.product.name,
+          price: item.product.price,
+          quantity: item.quantity,
+        }))}
         onClose={() => setCheckoutOpen(false)}
         onPaymentSuccess={handlePaymentSuccess}
+        onToast={onToast}
       />
     </div>
   );

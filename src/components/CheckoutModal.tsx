@@ -1,93 +1,179 @@
 import React, { useState } from 'react';
-import { CreditCard, Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
+import { getCookie } from '@/utils/cookies';
+
+declare global {
+  interface Window {
+    Cashfree: any;
+  }
+}
 
 interface CheckoutModalProps {
   readonly isOpen: boolean;
   readonly total: number;
+  readonly items: any[];
   readonly onClose: () => void;
-  readonly onPaymentSuccess: (transactionId: string) => void;
+  readonly onPaymentSuccess: () => void;
+  readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
 }
 
-export default function CheckoutModal({ isOpen, total, onClose, onPaymentSuccess }: CheckoutModalProps): React.JSX.Element | null {
-  const [method, setMethod] = useState<'card' | 'upi'>('card');
-  const [cardNumber, setCardNumber] = useState<string>('');
-  const [cardExpiry, setCardExpiry] = useState<string>('');
-  const [cardCvv, setCardCvv] = useState<string>('');
-  const [upiId, setUpiId] = useState<string>('');
-  const [step, setStep] = useState<'details' | 'processing' | 'success'>('details');
-  const [stage, setStage] = useState<string>('');
-  const [progress, setProgress] = useState<number>(0);
-  const [error, setError] = useState<string>('');
+export default function CheckoutModal({
+  isOpen,
+  total,
+  items,
+  onClose,
+  onPaymentSuccess,
+  onToast,
+}: CheckoutModalProps): React.JSX.Element | null {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [pincode, setPincode] = useState('');
+
+  const [step, setStep] = useState<'address' | 'processing' | 'success'>('address');
+  const [stage, setStage] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
-  const runSimulation = async (): Promise<void> => {
-    setStep('processing');
-    setError('');
-
-    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-    setStage('Connecting to secure banking network...');
-    setProgress(15);
-    await delay(1200);
-
-    setStage('Verifying card credentials & daily limits...');
-    setProgress(45);
-    await delay(1500);
-
-    setStage('Authorizing transaction amount...');
-    setProgress(75);
-    await delay(1200);
-
-    setStage('Generating order hash & confirmation...');
-    setProgress(100);
-    await delay(800);
-
-    const transactionId = 'TXN_' + Math.random().toString(36).substr(2, 9).toUpperCase();
-    onPaymentSuccess(transactionId);
-    setStep('success');
+  const loadCashfreeScript = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (window.Cashfree) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+      document.body.appendChild(script);
+    });
   };
 
   const handlePay = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');
 
-    if (method === 'card') {
-      if (cardNumber.replace(/\s/g, '').length < 16) {
-        setError('Please enter a valid 16-digit card number');
-        return;
-      }
-      if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-        setError('Please enter a valid expiry date (MM/YY)');
-        return;
-      }
-      if (cardCvv.length < 3) {
-        setError('Please enter a valid CVV');
-        return;
-      }
-    } else {
-      if (!upiId.includes('@')) {
-        setError('Please enter a valid UPI ID (e.g. name@upi)');
-        return;
-      }
+    if (phone.replace(/\D/g, '').length < 10) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
+    if (pincode.replace(/\D/g, '').length < 6) {
+      setError('Please enter a valid 6-digit PIN code');
+      return;
     }
 
-    await runSimulation();
+    const shippingAddress = {
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      state: stateName.trim(),
+      pincode: pincode.trim(),
+    };
+
+    setStep('processing');
+    setStage('Securing product reservation...');
+    setProgress(20);
+
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Authentication required. Please log in.');
+      setStep('address');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/orders/reserve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          items,
+          total,
+          shippingAddress,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Product reservation failed');
+        setStep('address');
+        return;
+      }
+
+      const { paymentSessionId, cashfreeOrderId } = data;
+
+      setStage('Loading secure payment portal...');
+      setProgress(50);
+      await loadCashfreeScript();
+
+      const cashfree = window.Cashfree({ mode: 'production' });
+
+      setStage('Completing checkout session...');
+      setProgress(80);
+
+      await cashfree.checkout({
+        paymentSessionId,
+        redirectTarget: '_modal',
+      });
+
+      setStage('Verifying payment confirmation...');
+      setProgress(90);
+
+      const verifyRes = await fetch('/api/orders/verify-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          cashfreeOrderId,
+          shippingAddress,
+          items,
+          total,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) {
+        setError(verifyData.error || 'Payment verification failed');
+        setStep('address');
+        return;
+      }
+
+      setProgress(100);
+      setStep('success');
+      onToast?.('success', 'Order placed successfully!');
+      onPaymentSuccess();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Payment initiation failed');
+      setStep('address');
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center px-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={step === 'processing' ? undefined : onClose}></div>
 
-      <div className="relative bg-[#0d0d0d] border border-white/10 w-full max-w-md rounded-[2.5rem] p-8 shadow-[0_0_80px_rgba(168,85,247,0.3)] text-left animate-fade-in-up">
-        {step === 'details' && (
+      <div className="relative bg-[#0d0d0d] border border-white/10 w-full max-w-lg rounded-[2.5rem] p-8 shadow-[0_0_80px_rgba(168,85,247,0.3)] text-left animate-fade-in-up my-8">
+        {step === 'address' && (
           <>
-            <div className="text-center mb-8">
+            <div className="text-center mb-6">
               <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                SECURE CHECKOUT
+                SHIPPING DETAILS
               </span>
               <h2 className="text-2xl font-black text-white uppercase tracking-tight mt-3">
-                Select Payment
+                Delivery Address
               </h2>
               <p className="text-neutral-400 text-xs mt-1 font-mono uppercase tracking-widest">
                 Amount Due: <span className="text-white font-sans font-bold">₹{total}</span>
@@ -101,89 +187,80 @@ export default function CheckoutModal({ isOpen, total, onClose, onPaymentSuccess
               </div>
             )}
 
-            <div className="flex bg-[#050505] p-1.5 rounded-2xl border border-white/5 mb-6">
-              <button
-                type="button"
-                onClick={() => setMethod('card')}
-                className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 cursor-pointer ${
-                  method === 'card' ? 'bg-white text-black shadow-lg' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                Card Payment
-              </button>
-              <button
-                type="button"
-                onClick={() => setMethod('upi')}
-                className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 cursor-pointer ${
-                  method === 'upi' ? 'bg-white text-black shadow-lg' : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                UPI Transfer
-              </button>
-            </div>
-
             <form className="space-y-4" onSubmit={handlePay}>
-              {method === 'card' ? (
-                <>
-                  <div className="relative">
-                    <CreditCard className="absolute left-4 top-4 text-neutral-500" size={16} />
-                    <input
-                      required
-                      type="text"
-                      maxLength={19}
-                      placeholder="CARD NUMBER"
-                      value={cardNumber}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
-                        setCardNumber(val);
-                      }}
-                      className="w-full bg-[#050505] pl-12 pr-4 py-4 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  required
+                  type="text"
+                  placeholder="FULL NAME"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                />
+                <input
+                  required
+                  type="email"
+                  placeholder="EMAIL ADDRESS"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                />
+              </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      required
-                      type="text"
-                      maxLength={5}
-                      placeholder="MM/YY"
-                      value={cardExpiry}
-                      onChange={(e) => {
-                        let val = e.target.value.replace(/\D/g, '');
-                        if (val.length > 2) val = val.substring(0, 2) + '/' + val.substring(2);
-                        setCardExpiry(val);
-                      }}
-                      className="w-full bg-[#050505] px-4 py-4 rounded-xl border border-white/5 text-white text-xs font-mono text-center outline-none focus:border-purple-500 transition-colors"
-                    />
-                    <input
-                      required
-                      type="password"
-                      maxLength={3}
-                      placeholder="CVV"
-                      value={cardCvv}
-                      onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                      className="w-full bg-[#050505] px-4 py-4 rounded-xl border border-white/5 text-white text-xs font-mono text-center outline-none focus:border-purple-500 transition-colors"
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="relative">
-                  <input
-                    required
-                    type="text"
-                    placeholder="ENTER UPI ID (e.g. name@upi)"
-                    value={upiId}
-                    onChange={(e) => setUpiId(e.target.value)}
-                    className="w-full bg-[#050505] px-4 py-4 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
-                  />
-                </div>
-              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  required
+                  type="tel"
+                  placeholder="10-DIGIT PHONE"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  maxLength={10}
+                  className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                />
+                <input
+                  required
+                  type="text"
+                  placeholder="6-DIGIT PINCODE"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
+                  maxLength={6}
+                  className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                />
+              </div>
+
+              <input
+                required
+                type="text"
+                placeholder="STREET ADDRESS"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  required
+                  type="text"
+                  placeholder="CITY"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                />
+                <input
+                  required
+                  type="text"
+                  placeholder="STATE"
+                  value={stateName}
+                  onChange={(e) => setStateName(e.target.value)}
+                  className="w-full bg-[#050505] px-4 py-3.5 rounded-xl border border-white/5 text-white text-xs font-mono uppercase tracking-widest outline-none focus:border-purple-500 transition-colors"
+                />
+              </div>
 
               <button
                 type="submit"
                 className="w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer mt-6"
               >
-                PAY NOW ₹{total}
+                PROCEED TO PAY ₹{total}
               </button>
             </form>
           </>
@@ -197,9 +274,9 @@ export default function CheckoutModal({ isOpen, total, onClose, onPaymentSuccess
             </div>
 
             <h3 className="text-lg font-black text-white uppercase tracking-tight">
-              Verifying Payment
+              Processing Checkout
             </h3>
-            
+
             <div className="w-full bg-[#050505] h-1.5 rounded-full overflow-hidden my-6 border border-white/5">
               <div
                 className="bg-purple-500 h-full rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(168,85,247,0.6)]"
@@ -236,8 +313,8 @@ export default function CheckoutModal({ isOpen, total, onClose, onPaymentSuccess
                 <span className="text-white font-bold font-sans text-xs">₹{total}</span>
               </div>
               <div className="flex justify-between">
-                <span>Gateway Type</span>
-                <span className="text-white">{method}</span>
+                <span>Delivery Service</span>
+                <span className="text-purple-400 font-bold">SHIPROCKET</span>
               </div>
             </div>
 
