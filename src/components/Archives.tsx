@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingBag, Search, X, Trash2, ArrowRight, AlertCircle, Heart } from 'lucide-react';
+import { ShoppingBag, Search, X, ArrowRight, AlertCircle, Heart } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import CheckoutModal from './CheckoutModal';
 import ProductDetail from './ProductDetail';
+import CartDrawer from './cart/CartDrawer';
+import type { CartItem } from '@/types/cart';
 import type { ProductItem } from '@/types/product';
 import type { UserSession } from '@/types/user';
-
-interface CartItem {
-  product: ProductItem;
-  quantity: number;
-}
 
 interface ArchivesProps {
   readonly user: UserSession | null;
@@ -367,65 +364,16 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
       )}
 
       {cartOpen && (
-        <div className="fixed inset-0 z-[250] flex justify-end">
-          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setCartOpen(false)}></div>
-          
-          <div className="motion-drawer relative w-full max-w-md bg-[#0a0a0a] border-l border-white/10 h-full p-8 flex flex-col justify-between shadow-[-10px_0_50px_rgba(0,0,0,0.8)]">
-            <div>
-              <div className="flex justify-between items-center border-b border-white/5 pb-6 mb-6">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag size={18} className="text-purple-400" />
-                  <h2 className="text-lg font-black text-white uppercase tracking-tight">My Bag</h2>
-                </div>
-                <button onClick={() => setCartOpen(false)} className="text-neutral-500 hover:text-white transition-colors cursor-pointer">
-                  <X size={20} />
-                </button>
-              </div>
-
-              {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-96 text-center">
-                  <span className="text-neutral-500 font-mono text-xs uppercase tracking-widest mb-2">Your bag is empty</span>
-                  <span className="text-neutral-600 font-mono text-[9px] uppercase tracking-widest">Browse the archives to add pieces</span>
-                </div>
-              ) : (
-                <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-2 custom-scrollbar text-left">
-                  {cart.map((item, index) => (
-                    <div key={item.product._id} className="motion-card bg-[#111]/30 border border-white/5 rounded-2xl p-4 flex gap-4 items-center" style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}>
-                      <img src={item.product.image} alt="" className="w-14 h-14 rounded-xl object-cover border border-white/5 bg-[#050505]" />
-                      <div className="flex-grow min-w-0">
-                        <h4 className="text-white font-black text-xs uppercase truncate">{item.product.name}</h4>
-                        <span className="text-purple-400 font-mono text-[9px] font-bold block mt-0.5">
-                          SIZE: {item.product.size} · ₹{item.product.price}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveFromCart(item.product._id)}
-                        className="text-neutral-500 hover:text-red-400 p-2 transition-colors cursor-pointer"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {cart.length > 0 && (
-              <div className="border-t border-white/5 pt-6 space-y-4">
-                <div className="flex justify-between items-center font-mono text-[10px] uppercase tracking-widest text-neutral-400">
-                  <span>Total ({cart.length} {cart.length === 1 ? 'item' : 'items'})</span>
-                  <span className="text-white font-black text-base font-sans">₹{cartTotal}</span>
-                </div>
-                <button
-                  onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}
-                  className="w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                >
-                  SECURE CHECKOUT
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        <CartDrawer
+          cart={cart}
+          total={cartTotal}
+          onClose={() => setCartOpen(false)}
+          onRemove={handleRemoveFromCart}
+          onCheckout={() => {
+            setCartOpen(false);
+            setCheckoutOpen(true);
+          }}
+        />
       )}
 
       {selectedProduct && (
