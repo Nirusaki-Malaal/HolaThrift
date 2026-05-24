@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import authRoutes from './routes/auth';
 import productsRoutes from './routes/products';
 import ordersRoutes from './routes/orders';
+import userRoutes from './routes/user';
 import { connectRedis } from './services/redis';
 
 const app = express();
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/user', userRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);

@@ -6,9 +6,10 @@ interface HeaderProps {
   readonly onLoginClick: () => void;
   readonly user: { email: string } | null;
   readonly onLogout: () => void;
+  readonly isAdmin: boolean;
 }
 
-export default function Header({ setActivePage, onLoginClick, user }: HeaderProps): React.JSX.Element {
+export default function Header({ setActivePage, onLoginClick, user, isAdmin }: HeaderProps): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   return (
@@ -37,7 +38,7 @@ export default function Header({ setActivePage, onLoginClick, user }: HeaderProp
             >
               MY ACCOUNT
             </button>
-            {user.email === 'nirusaki3@gmail.com' && (
+            {isAdmin && (
               <button
                 onClick={() => setActivePage('admin')}
                 className="text-purple-400 hover:text-purple-300 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors"
@@ -116,7 +117,7 @@ export default function Header({ setActivePage, onLoginClick, user }: HeaderProp
               >
                 My Account
               </button>
-              {user.email === 'nirusaki3@gmail.com' && (
+              {isAdmin && (
                 <button
                   className="text-purple-400 hover:text-purple-300 font-bold text-xs tracking-widest uppercase py-2.5 border-b border-white/5 transition-colors text-left cursor-pointer"
                   onClick={() => {

@@ -8,6 +8,7 @@ const productSchema = new Schema({
   condition: { type: String, required: true },
   image: { type: String, required: true },
   description: { type: String },
+  status: { type: String, enum: ['available', 'reserved', 'sold'], default: 'available' },
 });
 
 export const Product = mongoose.models.Product || mongoose.model('Product', productSchema);

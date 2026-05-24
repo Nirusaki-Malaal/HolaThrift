@@ -51,3 +51,25 @@ export const deleteCachedSession = async (key: string): Promise<void> => {
     console.error(error);
   }
 };
+
+export const acquireLock = async (key: string, ttlSeconds: number = 5): Promise<boolean> => {
+  try {
+    if (redisClient.isOpen) {
+      const result = await redisClient.set(key, '1', { NX: true, EX: ttlSeconds });
+      return result === 'OK';
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  return false;
+};
+
+export const releaseLock = async (key: string): Promise<void> => {
+  try {
+    if (redisClient.isOpen) {
+      await redisClient.del(key);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};

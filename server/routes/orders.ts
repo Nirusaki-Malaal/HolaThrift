@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import Order from '../models/Order';
-import { cacheSession, getCachedSession, deleteCachedSession } from '../services/redis';
+import Product from '../models/Product';
+import { cacheSession, getCachedSession, deleteCachedSession, acquireLock, releaseLock } from '../services/redis';
 
 const router = Router();
 
@@ -23,6 +24,37 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ error: 'Missing order details' });
       return;
     }
+
+    const lockedIds: string[] = [];
+    const soldIds: string[] = [];
+
+    for (const item of items) {
+      const lockKey = `lock:product:${item.productId}`;
+      const locked = await acquireLock(lockKey, 5);
+      if (!locked) {
+        for (const id of soldIds) await Product.findByIdAndUpdate(id, { status: 'available' });
+        for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
+        res.status(409).json({ error: `"${item.name}" is being purchased by another buyer. Try again.` });
+        return;
+      }
+      lockedIds.push(item.productId);
+
+      const updated = await Product.findOneAndUpdate(
+        { _id: item.productId, status: 'available' },
+        { status: 'sold' },
+        { new: true }
+      );
+      if (!updated) {
+        for (const id of soldIds) await Product.findByIdAndUpdate(id, { status: 'available' });
+        for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
+        res.status(409).json({ error: `"${item.name}" has already been sold. Remove it from your bag.` });
+        return;
+      }
+      soldIds.push(item.productId);
+    }
+
+    for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
+
     const order = new Order({
       userEmail: user.email,
       items,
@@ -31,6 +63,7 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
     });
     await order.save();
     await deleteCachedSession(`orders:${user.email}`);
+    await deleteCachedSession('products:all');
     res.status(201).json(order);
   } catch (error) {
     console.error(error);

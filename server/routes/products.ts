@@ -13,13 +13,15 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET || 'mock-secret',
 });
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+
 const checkAdmin = async (req: Request): Promise<boolean> => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.split(' ')[1];
   const session = await getCachedSession(`session:${token}`);
   if (!session) return false;
-  return session.email === (process.env.GMAIL_USER || 'nirusaki3@gmail.com');
+  return ADMIN_EMAILS.includes(session.email.toLowerCase());
 };
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {

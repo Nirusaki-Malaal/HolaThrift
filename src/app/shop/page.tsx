@@ -10,12 +10,15 @@ import AuthModal from '@/components/AuthModal';
 import Archives from '@/components/Archives';
 import Profile from '@/components/Profile';
 import AdminPanel from '@/components/AdminPanel';
+import ToastContainer, { useToast } from '@/components/Toast';
 import { LOADING_MESSAGES } from '@/constants/loading';
+import { ADMIN_EMAILS } from '@/constants/admin';
 import { getCookie, deleteCookie } from '@/utils/cookies';
 
 interface UserSession {
   email: string;
   phone: string;
+  name?: string;
 }
 
 export default function Shop(): React.JSX.Element {
@@ -25,6 +28,7 @@ export default function Shop(): React.JSX.Element {
   const [activePage, setActivePage] = useState<string>('home');
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
+  const { toasts, addToast, removeToast } = useToast();
 
   useEffect(() => {
     const textTimeout = setTimeout(() => {
@@ -69,6 +73,7 @@ export default function Shop(): React.JSX.Element {
 
   const handleLoginSuccess = (user: UserSession): void => {
     setCurrentUser(user);
+    addToast('success', 'Welcome back!');
     handlePageChange('archives');
   };
 
@@ -91,6 +96,7 @@ export default function Shop(): React.JSX.Element {
         onLoginClick={() => setIsAuthOpen(true)}
         user={currentUser}
         onLogout={handleLogout}
+        isAdmin={!!currentUser && ADMIN_EMAILS.includes(currentUser.email)}
       />
       
       {activePage === 'home' && (
@@ -102,17 +108,19 @@ export default function Shop(): React.JSX.Element {
 
       {activePage === 'return' && <ReturnPolicy setActivePage={handlePageChange} />}
       {activePage === 'tnc' && <TermsAndConditions setActivePage={handlePageChange} />}
-      {activePage === 'archives' && <Archives user={currentUser} onLogout={handleLogout} />}
-      {activePage === 'profile' && <Profile user={currentUser} onLogout={handleLogout} />}
-      {activePage === 'admin' && currentUser?.email === 'nirusaki3@gmail.com' && <AdminPanel />}
+      {activePage === 'archives' && <Archives user={currentUser} onLogout={handleLogout} onToast={addToast} />}
+      {activePage === 'profile' && <Profile user={currentUser} onLogout={handleLogout} onUserUpdate={setCurrentUser} onToast={addToast} />}
+      {activePage === 'admin' && currentUser && ADMIN_EMAILS.includes(currentUser.email) && <AdminPanel />}
 
-      <Footer setActivePage={handlePageChange} />
+      {activePage !== 'archives' && <Footer setActivePage={handlePageChange} />}
 
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onSuccess={handleLoginSuccess}
       />
+
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
