@@ -19,6 +19,16 @@ interface CheckoutItem {
   quantity: number;
 }
 
+interface CheckoutShippingAddress {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+}
+
 interface CheckoutModalProps {
   readonly isOpen: boolean;
   readonly total: number;
@@ -158,6 +168,40 @@ export default function CheckoutModal({
     });
   };
 
+  const verifyReservedPayment = async (
+    token: string,
+    cashfreeOrderId: string,
+    shippingAddress: CheckoutShippingAddress,
+    reservedItems: CheckoutItem[],
+    fallbackError: string
+  ): Promise<boolean> => {
+    const verifyRes = await fetch('/api/orders/verify-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        cashfreeOrderId,
+        shippingAddress,
+        items: reservedItems,
+      }),
+    });
+
+    const verifyData = await readJson<{ error?: string }>(verifyRes);
+    if (!verifyRes.ok) {
+      setError(getResponseError(verifyData, fallbackError));
+      setStep('address');
+      return false;
+    }
+
+    setProgress(100);
+    setStep('success');
+    onToast?.('success', 'Order placed successfully!');
+    onPaymentSuccess();
+    return true;
+  };
+
   const handlePay = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError('');
@@ -263,38 +307,22 @@ export default function CheckoutModal({
       });
 
       if (checkoutResult?.error) {
-        setError(checkoutResult.error.message || 'Payment was not completed');
-        setStep('address');
+        setStage('Confirming payment status...');
+        setProgress(90);
+        await verifyReservedPayment(
+          token,
+          cashfreeOrderId,
+          shippingAddress,
+          reservedItems,
+          checkoutResult.error.message || 'Payment was not completed. Product reservation was released.'
+        );
         return;
       }
 
       setStage('Verifying payment confirmation...');
       setProgress(90);
 
-      const verifyRes = await fetch('/api/orders/verify-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          cashfreeOrderId,
-          shippingAddress,
-          items: reservedItems,
-        }),
-      });
-
-      const verifyData = await readJson<{ error?: string }>(verifyRes);
-      if (!verifyRes.ok) {
-        setError(getResponseError(verifyData, 'Payment verification failed'));
-        setStep('address');
-        return;
-      }
-
-      setProgress(100);
-      setStep('success');
-      onToast?.('success', 'Order placed successfully!');
-      onPaymentSuccess();
+      await verifyReservedPayment(token, cashfreeOrderId, shippingAddress, reservedItems, 'Payment verification failed');
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Payment initiation failed');
