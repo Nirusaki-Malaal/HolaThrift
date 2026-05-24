@@ -78,6 +78,8 @@ export default function Shop(): React.JSX.Element {
     handlePageChange('home');
   };
 
+  const showFooter = activePage === 'home' || activePage === 'return' || activePage === 'tnc';
+
   if (appLoading) {
     return <LoadingScreen text={loadingText} />;
   }
@@ -107,7 +109,7 @@ export default function Shop(): React.JSX.Element {
       {activePage === 'profile' && <Profile user={currentUser} onLogout={handleLogout} onUserUpdate={setCurrentUser} onToast={addToast} />}
       {activePage === 'admin' && currentUser?.isAdmin && <AdminPanel />}
 
-      {activePage !== 'archives' && <Footer setActivePage={handlePageChange} />}
+      {showFooter && <Footer setActivePage={handlePageChange} />}
 
       <AuthModal
         isOpen={isAuthOpen}
