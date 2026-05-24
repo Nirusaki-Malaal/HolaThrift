@@ -20,6 +20,17 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const allowedImageTypes = new Set(['jpeg', 'jpg', 'png', 'webp']);
+const maxUploadBytes = Number(process.env.IMAGE_UPLOAD_MAX_BYTES || 5 * 1024 * 1024);
+
+const parseImageDataUrl = (image: string): { ext: string; buffer: Buffer } | null => {
+  const matches = image.match(/^data:image\/([\w.+-]+);base64,(.+)$/);
+  if (!matches) return null;
+  const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1].toLowerCase();
+  if (!allowedImageTypes.has(ext)) return null;
+  return { ext, buffer: Buffer.from(matches[2], 'base64') };
+};
+
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     let products: ProductListItem[];
@@ -128,8 +139,17 @@ router.post('/upload', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const { image } = req.body;
-    if (!image) {
+    if (!image || typeof image !== 'string') {
       res.status(400).json({ error: 'No image data provided' });
+      return;
+    }
+    const parsedImage = parseImageDataUrl(image);
+    if (!parsedImage) {
+      res.status(400).json({ error: 'Invalid image data format' });
+      return;
+    }
+    if (parsedImage.buffer.length > maxUploadBytes) {
+      res.status(413).json({ error: 'Image file is too large' });
       return;
     }
     try {
@@ -138,20 +158,13 @@ router.post('/upload', async (req: Request, res: Response): Promise<void> => {
       });
       res.status(200).json({ url: uploadResponse.secure_url });
     } catch {
-      const matches = image.match(/^data:image\/([\w.+-]+);base64,(.+)$/);
-      if (matches) {
-        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
-        const filename = `img_${Date.now()}.${ext}`;
-        const dir = path.join(process.cwd(), 'public', 'uploads');
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(path.join(dir, filename), buffer);
-        res.status(200).json({ url: `/uploads/${filename}` });
-      } else {
-        res.status(400).json({ error: 'Invalid base64 image data format' });
+      const filename = `img_${Date.now()}.${parsedImage.ext}`;
+      const dir = path.join(process.cwd(), 'public', 'uploads');
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
       }
+      fs.writeFileSync(path.join(dir, filename), parsedImage.buffer);
+      res.status(200).json({ url: `/uploads/${filename}` });
     }
   } catch (error) {
     console.error(error);

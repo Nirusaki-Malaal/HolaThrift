@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
 import { User } from '../models/User';
 import Product from '../models/Product';
 import { sendOtpEmail } from '../services/mail';
@@ -8,6 +9,8 @@ import { getBearerToken, getRequestSession, toUserSession } from '../utils/auth'
 import type { UserLike, UserSession } from '../utils/auth';
 
 const router = Router();
+
+const createOtp = (): string => randomInt(100000, 1000000).toString();
 
 interface SavedAddress {
   name: string;
@@ -151,7 +154,7 @@ router.put('/email', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = createOtp();
     await cacheSession(`email_change:${session.id}`, { newEmail: normalizedEmail, otp }, 600);
     await sendOtpEmail(normalizedEmail, otp);
     res.json({ message: 'Verification code sent to new email' });
