@@ -15,10 +15,11 @@ import type { AvailabilityFilter, ProductSort } from '@/utils/productFilters';
 interface ArchivesProps {
   readonly user: UserSession | null;
   readonly onLogout: () => void;
+  readonly onLoginRequired: () => void;
   readonly onToast?: (type: 'success' | 'error' | 'info', message: string) => void;
 }
 
-export default function Archives({ user, onToast }: ArchivesProps): React.JSX.Element {
+export default function Archives({ user, onLoginRequired, onToast }: ArchivesProps): React.JSX.Element {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [catalogError, setCatalogError] = useState<string>('');
@@ -39,6 +40,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
   });
   const [cartOpen, setCartOpen] = useState<boolean>(false);
   const [checkoutOpen, setCheckoutOpen] = useState<boolean>(false);
+  const [checkoutAfterLogin, setCheckoutAfterLogin] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(() => new Set());
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -122,6 +124,26 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
       }
     }
   }, [cart, onToast, products, saveCart]);
+
+  useEffect(() => {
+    if (!user || !checkoutAfterLogin) return;
+    const timer = window.setTimeout(() => {
+      setCheckoutAfterLogin(false);
+      setCheckoutOpen(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [checkoutAfterLogin, user]);
+
+  const handleCheckoutRequest = (): void => {
+    setCartOpen(false);
+    if (!user) {
+      setCheckoutAfterLogin(true);
+      onToast?.('info', 'Sign in to checkout');
+      onLoginRequired();
+      return;
+    }
+    setCheckoutOpen(true);
+  };
 
   const handleAddToCart = (product: ProductItem): void => {
     if (isProductOutOfStock(product)) {
@@ -424,10 +446,7 @@ export default function Archives({ user, onToast }: ArchivesProps): React.JSX.El
           total={cartTotal}
           onClose={() => setCartOpen(false)}
           onRemove={handleRemoveFromCart}
-          onCheckout={() => {
-            setCartOpen(false);
-            setCheckoutOpen(true);
-          }}
+          onCheckout={handleCheckoutRequest}
         />
       )}
 

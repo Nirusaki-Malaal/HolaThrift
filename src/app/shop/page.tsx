@@ -127,7 +127,7 @@ export default function Shop(): React.JSX.Element {
 
         {activePage === 'return' && <ReturnPolicy setActivePage={handlePageChange} />}
         {activePage === 'tnc' && <TermsAndConditions setActivePage={handlePageChange} />}
-        {activePage === 'archives' && <Archives user={currentUser} onLogout={handleLogout} onToast={addToast} />}
+        {activePage === 'archives' && <Archives user={currentUser} onLogout={handleLogout} onLoginRequired={() => setIsAuthOpen(true)} onToast={addToast} />}
         {activePage === 'profile' && <Profile user={currentUser} onLogout={handleLogout} onUserUpdate={setCurrentUser} onToast={addToast} />}
         {activePage === 'admin' && currentUser?.isAdmin && <AdminPanel />}
       </Suspense>
