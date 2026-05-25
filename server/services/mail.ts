@@ -4,7 +4,7 @@ import { IntegrationConfigError } from './integrationError';
 
 let cachedClient: Resend | null = null;
 
-const FROM_ADDRESS = 'Hola Thrift <onboarding@resend.dev>';
+const FROM_ADDRESS = 'Hola Thrift <info@holathrift.in>';
 
 const getResendClient = (): Resend => {
   if (cachedClient) return cachedClient;
