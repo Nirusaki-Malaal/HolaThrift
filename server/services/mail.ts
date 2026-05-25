@@ -1,38 +1,21 @@
-import nodemailer from 'nodemailer';
-import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { Resend } from 'resend';
 import { getEnv } from '../config/env';
 import { IntegrationConfigError } from './integrationError';
 
-let cachedTransporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | null = null;
-let cachedMailKey = '';
+let cachedClient: Resend | null = null;
 
-const getMailConfig = () => ({
-  user: getEnv('GMAIL_USER') || 'nirusaki3@gmail.com',
-  pass: getEnv('GMAIL_PASS') || getEnv('GMAIl_PASS'),
-});
+const FROM_ADDRESS = 'Hola Thrift <onboarding@resend.dev>';
 
-const getTransporter = (): { transporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo>; user: string } => {
-  const config = getMailConfig();
-  if (!config.user || !config.pass) {
-    throw new IntegrationConfigError('Gmail credentials are not configured. Set GMAIL_USER and GMAIL_PASS.');
+const getResendClient = (): Resend => {
+  if (cachedClient) return cachedClient;
+
+  const apiKey = getEnv('RESEND_API_KEY');
+  if (!apiKey) {
+    throw new IntegrationConfigError('Resend API key is not configured. Set RESEND_API_KEY.');
   }
 
-  const mailKey = `${config.user}:${config.pass.length}`;
-  if (!cachedTransporter || mailKey !== cachedMailKey) {
-    cachedTransporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: config.user,
-        pass: config.pass,
-      },
-      family: 4,
-    } as SMTPTransport.Options);
-    cachedMailKey = mailKey;
-  }
-
-  return { transporter: cachedTransporter, user: config.user };
+  cachedClient = new Resend(apiKey);
+  return cachedClient;
 };
 
 const logMailError = (error: unknown): void => {
@@ -45,9 +28,9 @@ const logMailError = (error: unknown): void => {
 
 export const sendWelcomeEmail = async (to: string, email: string): Promise<boolean> => {
   try {
-    const { transporter, user } = getTransporter();
-    await transporter.sendMail({
-      from: `"Hola Thrift" <${user}>`,
+    const resend = getResendClient();
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
       to,
       subject: 'Welcome to Hola Thrift ARCHIVES! 🔥',
       html: `
@@ -56,7 +39,7 @@ export const sendWelcomeEmail = async (to: string, email: string): Promise<boole
             HOLA<span style="color: #a855f7;">THRIFT</span>
           </h1>
           <p style="font-size: 16px; line-height: 1.5; color: #a3a3a3; text-align: center; margin: 0 0 20px 0;">
-            Welcome to the premium Gen-Z vintage & streetwear archive.
+            Welcome to the premium Gen-Z vintage &amp; streetwear archive.
           </p>
           <div style="background-color: #111111; padding: 25px; border-radius: 15px; border: 1px solid #222; text-align: center; margin: 30px 0;">
             <p style="font-size: 12px; margin: 0; color: #a855f7; font-weight: bold; text-transform: uppercase; letter-spacing: 2px;">
@@ -72,6 +55,8 @@ export const sendWelcomeEmail = async (to: string, email: string): Promise<boole
         </div>
       `,
     });
+
+    if (error) throw error;
     return true;
   } catch (error) {
     logMailError(error);
@@ -81,9 +66,9 @@ export const sendWelcomeEmail = async (to: string, email: string): Promise<boole
 
 export const sendOtpEmail = async (to: string, otp: string): Promise<boolean> => {
   try {
-    const { transporter, user } = getTransporter();
-    await transporter.sendMail({
-      from: `"Hola Thrift" <${user}>`,
+    const resend = getResendClient();
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
       to,
       subject: `Verify your email: ${otp} - Hola Thrift ARCHIVES! 🔑`,
       html: `
@@ -108,6 +93,8 @@ export const sendOtpEmail = async (to: string, otp: string): Promise<boolean> =>
         </div>
       `,
     });
+
+    if (error) throw error;
     return true;
   } catch (error) {
     logMailError(error);
@@ -117,9 +104,9 @@ export const sendOtpEmail = async (to: string, otp: string): Promise<boolean> =>
 
 export const sendLoginOtpEmail = async (to: string, otp: string): Promise<boolean> => {
   try {
-    const { transporter, user } = getTransporter();
-    await transporter.sendMail({
-      from: `"Hola Thrift" <${user}>`,
+    const resend = getResendClient();
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
       to,
       subject: `Your Hola Thrift Security Code: ${otp} - 2-Step Login! 🔑`,
       html: `
@@ -144,6 +131,8 @@ export const sendLoginOtpEmail = async (to: string, otp: string): Promise<boolea
         </div>
       `,
     });
+
+    if (error) throw error;
     return true;
   } catch (error) {
     logMailError(error);
@@ -170,15 +159,27 @@ const escapeHtml = (value: unknown): string => {
     .replace(/'/g, '&#039;');
 };
 
+/**
+ * Fetches a remote file and returns its content as a base64 string
+ * for use with Resend attachments.
+ */
+const fetchAttachmentAsBase64 = async (url: string): Promise<string> => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch attachment: ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return buffer.toString('base64');
+};
+
 export const sendOrderInvoiceEmail = async (to: string, order: InvoiceEmailOrder): Promise<boolean> => {
   if (!order.invoiceUrl) return false;
 
   try {
-    const { transporter, user } = getTransporter();
+    const resend = getResendClient();
     const customerName = order.shippingAddress?.name || 'Customer';
+    const invoiceBase64 = await fetchAttachmentAsBase64(order.invoiceUrl);
 
-    await transporter.sendMail({
-      from: `"Hola Thrift" <${user}>`,
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
       to,
       subject: `Invoice for your Hola Thrift order ${order.transactionId}`,
       html: `
@@ -206,11 +207,13 @@ export const sendOrderInvoiceEmail = async (to: string, order: InvoiceEmailOrder
       attachments: [
         {
           filename: `hola-invoice-${order.transactionId}.jpg`,
-          path: order.invoiceUrl,
+          content: invoiceBase64,
           contentType: 'image/jpeg',
         },
       ],
     });
+
+    if (error) throw error;
     return true;
   } catch (error) {
     logMailError(error);
@@ -220,11 +223,11 @@ export const sendOrderInvoiceEmail = async (to: string, order: InvoiceEmailOrder
 
 export const sendCustomEmail = async (to: string, subject: string, message: string): Promise<boolean> => {
   try {
-    const { transporter, user } = getTransporter();
+    const resend = getResendClient();
     const safeMessage = escapeHtml(message).replace(/\n/g, '<br/>');
 
-    await transporter.sendMail({
-      from: `"Hola Thrift" <${user}>`,
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
       to,
       subject,
       html: `
@@ -241,6 +244,8 @@ export const sendCustomEmail = async (to: string, subject: string, message: stri
         </div>
       `,
     });
+
+    if (error) throw error;
     return true;
   } catch (error) {
     logMailError(error);
