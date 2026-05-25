@@ -20,12 +20,15 @@ const getTransporter = (): { transporter: nodemailer.Transporter<SMTPTransport.S
   const mailKey = `${config.user}:${config.pass.length}`;
   if (!cachedTransporter || mailKey !== cachedMailKey) {
     cachedTransporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: config.user,
         pass: config.pass,
       },
-    });
+      family: 4,
+    } as SMTPTransport.Options);
     cachedMailKey = mailKey;
   }
 
