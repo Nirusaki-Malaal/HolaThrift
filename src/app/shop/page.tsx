@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import Header from '@/components/Header';
+import MobileNav from '@/components/MobileNav';
 import Marquee from '@/components/Marquee';
 import Footer from '@/components/Footer';
 import AuthModal from '@/components/AuthModal';
@@ -103,7 +104,7 @@ export default function Shop(): React.JSX.Element {
   }
 
   return (
-    <div className="text-white font-sans min-h-screen flex flex-col bg-[#050505] relative overflow-x-clip">
+    <div className="text-white font-sans min-h-screen flex flex-col bg-[#050505] relative overflow-x-clip pb-[3.75rem] md:pb-0">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] animate-grid-flow"></div>
       
       <Header
@@ -133,6 +134,14 @@ export default function Shop(): React.JSX.Element {
       </Suspense>
 
       {showFooter && <Footer setActivePage={handlePageChange} />}
+
+      <MobileNav
+        activePage={activePage}
+        setActivePage={handlePageChange}
+        user={currentUser}
+        isAdmin={Boolean(currentUser?.isAdmin)}
+        onLoginClick={() => setIsAuthOpen(true)}
+      />
 
       <AuthModal
         isOpen={isAuthOpen}
