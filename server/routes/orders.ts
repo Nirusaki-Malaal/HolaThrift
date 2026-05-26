@@ -478,7 +478,8 @@ router.get('/serviceability/:pincode', serviceabilityRateLimit, async (req: Requ
       return;
     }
 
-    const data = await checkServiceability(pincode);
+    const isCod = req.query.cod === '1';
+    const data = await checkServiceability(pincode, isCod);
     res.json(data);
   } catch (error) {
     if (isIntegrationConfigError(error)) {

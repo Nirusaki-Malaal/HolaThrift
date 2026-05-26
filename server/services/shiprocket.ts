@@ -144,7 +144,7 @@ export const createShiprocketOrder = async (
     name: item.name,
     sku: item.productId || 'SKU_GENERIC',
     units: item.quantity || 1,
-    selling_price: Number(item.price).toString(),
+    selling_price: Number(item.price),
   }));
 
   const response = await fetchWithTimeout(`${baseUrl}/v1/external/orders/create/adhoc`, {
@@ -230,7 +230,7 @@ const fetchTracking = async (endpoint: string): Promise<unknown> => {
   return await readExternalJson(response);
 };
 
-export const checkServiceability = async (deliveryPincode: string): Promise<ServiceabilityResult> => {
+export const checkServiceability = async (deliveryPincode: string, isCod: boolean = false): Promise<ServiceabilityResult> => {
   if (!isShiprocketConfigured()) {
     return {
       serviceable: true,
@@ -259,7 +259,7 @@ export const checkServiceability = async (deliveryPincode: string): Promise<Serv
   const params = new URLSearchParams({
     pickup_postcode: pickupPostcode,
     delivery_postcode: deliveryPincode,
-    cod: '1',
+    cod: isCod ? '1' : '0',
     weight: getPackageNumber('SHIPROCKET_PACKAGE_WEIGHT_KG', 0.5).toString(),
   });
 
