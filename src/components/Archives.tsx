@@ -357,7 +357,7 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
           </span>
         </div>
       ) : (
-        <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 lg:grid-cols-4 lg:gap-5">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4 lg:gap-5">
           {filteredProducts.map((product, index) => {
             const isOutOfStock = isProductOutOfStock(product);
             const isInCart = cart.some(item => item.product._id === product._id);
@@ -366,15 +366,15 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
               <div
                 key={product._id}
                 onClick={() => setSelectedProduct(product)}
-                className={`motion-card motion-lift group relative flex min-h-[10.25rem] cursor-pointer flex-row gap-3 overflow-hidden rounded-lg border border-white/5 bg-[#111]/30 p-2.5 transition-all duration-500 hover:border-purple-500/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] md:min-h-0 md:flex-col md:gap-0 md:p-5 ${isOutOfStock ? 'opacity-60' : ''}`}
+                className={`motion-card motion-lift group relative flex cursor-pointer flex-col gap-0 overflow-hidden rounded-lg border border-white/5 bg-[#111]/30 p-3 transition-all duration-500 hover:border-purple-500/25 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] md:p-5 ${isOutOfStock ? 'opacity-60' : ''}`}
                 style={{ animationDelay: `${Math.min(index, 16) * 45}ms` }}
               >
-                <div className="relative aspect-square w-[38%] min-w-[7.25rem] max-w-[9rem] shrink-0 overflow-hidden rounded-lg border border-white/5 bg-[#050505] md:mb-4 md:w-full md:min-w-0 md:max-w-none">
+                <div className="relative aspect-square w-full shrink-0 overflow-hidden rounded-lg border border-white/5 bg-[#050505] mb-3 md:mb-4">
                   <img src={product.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <span className="absolute left-1.5 top-1.5 max-w-[calc(100%-3.75rem)] truncate rounded-md border border-white/5 bg-black/60 px-1.5 py-0.5 font-mono text-[6px] tracking-widest text-neutral-400 backdrop-blur-sm md:left-3 md:top-3 md:px-2 md:text-[8px]">
+                  <span className="absolute left-1.5 top-1.5 max-w-[calc(100%-3.5rem)] truncate rounded-md border border-white/5 bg-black/60 px-1.5 py-0.5 font-mono text-[7px] tracking-widest text-neutral-400 backdrop-blur-sm md:left-3 md:top-3 md:px-2 md:text-[8px]">
                     {product.category}
                   </span>
-                  <span className="absolute right-1.5 top-1.5 rounded-md bg-purple-500/90 px-1.5 py-0.5 font-mono text-[6px] font-black tracking-wider text-white shadow-[0_0_8px_rgba(168,85,247,0.4)] md:right-3 md:top-3 md:px-2 md:text-[8px]">
+                  <span className="absolute right-1.5 top-1.5 rounded-md bg-purple-500/90 px-1.5 py-0.5 font-mono text-[7px] font-black tracking-wider text-white shadow-[0_0_8px_rgba(168,85,247,0.4)] md:right-3 md:top-3 md:px-2 md:text-[8px]">
                     SIZE {product.size}
                   </span>
                   <button
@@ -389,47 +389,42 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
                         : 'border-white/10 bg-black/60 text-neutral-300 hover:text-white'
                     }`}
                   >
-                    <Heart size={15} className={isSaved ? 'fill-current' : ''} />
+                    <Heart size={14} className={isSaved ? 'fill-current' : ''} />
                   </button>
                   {isOutOfStock && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <span className="rotate-[-12deg] rounded-lg border-2 border-red-400/40 px-2 py-1 text-xs font-black uppercase tracking-widest text-red-400 md:px-4 md:text-lg">OUT OF STOCK</span>
+                      <span className="rotate-[-12deg] rounded-lg border border-red-400/40 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-red-400 md:border-2 md:px-4 md:py-1 md:text-lg">SOLD OUT</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex min-w-0 flex-1 flex-col py-0.5 md:block md:py-0">
-                  <div className="mb-2 space-y-1 text-left md:mb-4 md:min-h-[3.05rem]">
-                    <h3 className="line-clamp-2 text-xs font-black uppercase leading-tight tracking-tight text-white transition-colors group-hover:text-purple-300 md:text-sm">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="mb-2 space-y-1 text-left min-h-[2.35rem] md:mb-4 md:min-h-[3.05rem]">
+                    <h3 className="line-clamp-2 text-[10px] sm:text-xs font-black uppercase leading-tight tracking-tight text-white transition-colors group-hover:text-purple-300 md:text-sm">
                       {product.name}
                     </h3>
-                    <p className={`font-mono text-[8px] uppercase leading-tight tracking-[0.12em] md:text-[9px] md:tracking-widest ${getStockToneClass(product)}`}>
+                    <p className={`font-mono text-[7px] sm:text-[8px] uppercase leading-tight tracking-[0.12em] md:text-[9px] md:tracking-widest ${getStockToneClass(product)}`}>
                       {getStockLabel(product)}
                     </p>
-                    {product.description && (
-                      <p className="line-clamp-2 text-[10px] leading-snug text-neutral-500 md:hidden">
-                        {product.description}
-                      </p>
-                    )}
                   </div>
 
-                  <div className="mt-auto flex items-end justify-between gap-3 border-t border-white/5 pt-2 md:flex-row md:items-center md:pt-4">
-                    <span className="shrink-0 font-sans text-base font-black text-white md:text-base">₹{product.price}</span>
+                  <div className="mt-auto flex items-center justify-between gap-1 border-t border-white/5 pt-2 md:pt-4">
+                    <span className="shrink-0 font-sans text-xs sm:text-sm font-black text-white md:text-base">₹{product.price}</span>
                     {isOutOfStock ? (
-                      <span className="min-w-[6.25rem] rounded-lg border border-white/5 bg-neutral-800/50 px-2 py-2 text-center text-[8px] font-black uppercase tracking-[0.1em] text-neutral-500 md:px-4 md:py-2.5 md:text-[9px] md:tracking-widest">
-                        OUT OF STOCK
+                      <span className="rounded-lg border border-white/5 bg-neutral-800/50 px-2 py-1.5 text-center text-[7px] sm:text-[8px] font-black uppercase tracking-wider text-neutral-500 md:px-4 md:py-2.5 md:text-[9px] md:tracking-widest">
+                        SOLD OUT
                       </span>
                     ) : (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleAddToCart(product); }}
-                        className={`motion-press flex min-h-9 min-w-[6.25rem] items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[8px] font-black uppercase tracking-[0.1em] transition-all cursor-pointer md:min-h-0 md:px-4 md:py-2.5 md:text-[9px] md:tracking-widest ${
+                        className={`motion-press flex h-7 items-center justify-center gap-1 rounded-lg px-2 text-[7px] sm:text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer md:h-9 md:px-4 md:text-[9px] md:tracking-widest ${
                           isInCart
                             ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400'
                             : 'bg-white text-black hover:bg-purple-500 hover:text-white shadow-[0_0_12px_rgba(255,255,255,0.1)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]'
                         }`}
                       >
-                        <span>{isInCart ? 'IN BAG' : 'ADD'}</span>
-                        {!isInCart && <ArrowRight size={10} />}
+                        <span>{isInCart ? 'BAG' : 'ADD'}</span>
+                        {!isInCart && <ArrowRight size={8} />}
                       </button>
                     )}
                   </div>
