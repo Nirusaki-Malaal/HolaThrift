@@ -24,6 +24,7 @@ const orderSchema = new Schema({
   },
   cashfreeOrderId: { type: String },
   paymentProvider: { type: String, default: 'Cashfree' },
+  paymentMethod: { type: String, default: 'Prepaid' },
   paymentStatus: { type: String, default: 'PAID' },
   cashfreeOrderStatus: { type: String },
   cashfreePaymentSessionId: { type: String },

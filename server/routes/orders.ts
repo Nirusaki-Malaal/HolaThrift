@@ -365,6 +365,111 @@ router.post('/reserve', checkoutRateLimit, async (req: Request, res: Response): 
   }
 });
 
+router.post('/cod', checkoutRateLimit, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = await getSessionUser(req);
+    if (!user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    const { items, shippingAddress } = req.body;
+    if (!Array.isArray(items) || items.length === 0 || !shippingAddress) {
+      res.status(400).json({ error: 'Missing order details' });
+      return;
+    }
+    if (!redisClient.isOpen) {
+      res.status(503).json({ error: 'Order service is unavailable. Please try again in a few minutes.' });
+      return;
+    }
+    const normalizedShippingAddress = normalizeShippingAddress(shippingAddress);
+    if (!normalizedShippingAddress) {
+      res.status(400).json({ error: 'Complete and valid shipping details are required' });
+      return;
+    }
+
+    const { verifiedItems, total } = await getVerifiedItems(items);
+
+    const lockedIds: string[] = [];
+    try {
+      for (const item of verifiedItems) {
+        const lockKey = `lock:product:${item.productId}`;
+        const locked = await acquireLock(lockKey, 5);
+        if (!locked) throw new RequestValidationError(`"${item.name}" is currently locked by another buyer. Please try again.`, 409);
+        lockedIds.push(item.productId);
+
+        const prod = await Product.findById(item.productId);
+        if (!prod) throw new RequestValidationError(`"${item.name}" is no longer available.`, 409);
+
+        const currentInventory = prod.toObject();
+        if (getAvailableStockCount(currentInventory) < item.quantity) {
+          throw new RequestValidationError(`"${item.name}" does not have enough stock left.`, 409);
+        }
+
+        await completePaidReservation(item);
+      }
+    } catch (err) {
+      for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
+      throw err;
+    }
+    for (const id of lockedIds) await releaseLock(`lock:product:${id}`);
+
+    const codOrderId = `HT_${Date.now()}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    let srOrder: Record<string, unknown> | null = null;
+    try {
+      srOrder = await createShiprocketOrder(codOrderId, Number(total), verifiedItems, normalizedShippingAddress, 'COD');
+    } catch (shippingError) {
+      if (isIntegrationConfigError(shippingError)) {
+        console.warn(shippingError.message);
+      } else {
+        console.error('Shiprocket order creation failed for COD order:', shippingError);
+      }
+    }
+
+    const order = new Order({
+      userEmail: user.email,
+      items: verifiedItems,
+      total: Number(total),
+      transactionId: codOrderId,
+      shippingAddress: normalizedShippingAddress as ShippingAddress,
+      paymentProvider: 'COD',
+      paymentMethod: 'COD',
+      paymentStatus: 'COD',
+      shiprocketOrderId: getStringField(srOrder, 'order_id'),
+      shiprocketShipmentId: getStringField(srOrder, 'shipment_id'),
+      awbCode: getStringField(srOrder, 'awb_code'),
+      courierName: getStringField(srOrder, 'courier_name'),
+      shippingStatus: srOrder ? 'Shipment Created' : 'Pending Shipment Creation',
+    });
+
+    await order.save();
+
+    try {
+      const invoice = await createAndUploadInvoice(order.toObject());
+      order.invoiceUrl = invoice.invoiceUrl;
+      order.invoicePublicId = invoice.invoicePublicId;
+      order.invoiceGeneratedAt = new Date();
+      const invoiceEmailSent = await sendOrderInvoiceEmail(normalizedShippingAddress.email || user.email, order.toObject());
+      if (invoiceEmailSent) order.invoiceEmailSentAt = new Date();
+      await order.save();
+    } catch (invoiceError) {
+      if (isIntegrationConfigError(invoiceError)) {
+        console.warn(invoiceError.message);
+      } else {
+        console.error('Invoice generation failed for COD order:', invoiceError);
+      }
+    }
+
+    await deleteCachedSession(`orders:${user.email}`);
+    await deleteCachedSession('products:all');
+
+    res.status(201).json(order);
+  } catch (error) {
+    if (shouldLogError(error)) console.error(error);
+    sendErrorResponse(res, error);
+  }
+});
+
 router.get('/serviceability/:pincode', serviceabilityRateLimit, async (req: Request, res: Response): Promise<void> => {
   try {
     const pincode = String(req.params.pincode).replace(/\D/g, '');
@@ -382,6 +487,7 @@ router.get('/serviceability/:pincode', serviceabilityRateLimit, async (req: Requ
         courierName: 'Shiprocket',
         estimatedDays: '',
         freightCharge: 0,
+        codAvailable: false,
         raw: null,
         message: error.message,
       });
@@ -458,7 +564,7 @@ router.post('/verify-payment', checkoutRateLimit, async (req: Request, res: Resp
 
     let srOrder: Record<string, unknown> | null = null;
     try {
-      srOrder = await createShiprocketOrder(cashfreeOrderId, Number(total), verifiedItems, shippingAddress);
+      srOrder = await createShiprocketOrder(cashfreeOrderId, Number(total), verifiedItems, shippingAddress, 'Prepaid');
     } catch (shippingError) {
       if (isIntegrationConfigError(shippingError)) {
         console.warn(shippingError.message);

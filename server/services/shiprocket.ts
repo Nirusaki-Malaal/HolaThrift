@@ -27,6 +27,7 @@ export interface ServiceabilityResult {
   courierName: string;
   estimatedDays: string;
   freightCharge: number;
+  codAvailable: boolean;
   raw: unknown;
   message?: string;
 }
@@ -133,7 +134,8 @@ export const createShiprocketOrder = async (
   orderId: string,
   total: number,
   items: ShiprocketOrderItem[],
-  shippingAddress: ShiprocketShippingAddress
+  shippingAddress: ShiprocketShippingAddress,
+  paymentMethod: 'Prepaid' | 'COD' = 'Prepaid'
 ): Promise<Record<string, unknown>> => {
   const token = await getShiprocketToken();
   const { firstName, lastName } = getCustomerName(shippingAddress.name);
@@ -167,7 +169,7 @@ export const createShiprocketOrder = async (
       billing_phone: shippingAddress.phone.replace(/\D/g, '').slice(-10),
       shipping_is_billing: true,
       order_items: orderItems,
-      payment_method: 'Prepaid',
+      payment_method: paymentMethod,
       sub_total: total,
       shipping_charges: 0,
       giftwrap_charges: 0,
@@ -235,6 +237,7 @@ export const checkServiceability = async (deliveryPincode: string): Promise<Serv
       courierName: 'Shiprocket',
       estimatedDays: '',
       freightCharge: 0,
+      codAvailable: false,
       raw: null,
       message: 'Delivery serviceability will be confirmed during order processing.',
     };
@@ -248,6 +251,7 @@ export const checkServiceability = async (deliveryPincode: string): Promise<Serv
       courierName: 'Shiprocket',
       estimatedDays: '',
       freightCharge: 0,
+      codAvailable: false,
       raw: null,
       message: 'Pickup PIN code is not configured. Delivery will be confirmed manually.',
     };
@@ -255,7 +259,7 @@ export const checkServiceability = async (deliveryPincode: string): Promise<Serv
   const params = new URLSearchParams({
     pickup_postcode: pickupPostcode,
     delivery_postcode: deliveryPincode,
-    cod: '0',
+    cod: '1',
     weight: getPackageNumber('SHIPROCKET_PACKAGE_WEIGHT_KG', 0.5).toString(),
   });
 
@@ -283,6 +287,7 @@ export const checkServiceability = async (deliveryPincode: string): Promise<Serv
     courierName: String(preferredCourier.courier_name || ''),
     estimatedDays: String(preferredCourier.estimated_delivery_days || preferredCourier.etd || ''),
     freightCharge: Number(preferredCourier.freight_charge || 0),
+    codAvailable: couriers.some((c) => Number(c.cod) === 1),
     raw: data,
   };
 };

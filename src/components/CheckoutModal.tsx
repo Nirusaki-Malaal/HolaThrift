@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle, Banknote, CreditCard } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import { getResponseError, readJson } from '@/utils/http';
 import type { SavedAddress, UserSession } from '@/types/user';
@@ -64,8 +64,10 @@ export default function CheckoutModal({
   const [cashfreeMode, setCashfreeMode] = useState<'sandbox' | 'production'>('production');
   const [orderReference, setOrderReference] = useState('');
   const [reservationExpiresAt, setReservationExpiresAt] = useState('');
-  const [deliveryCheck, setDeliveryCheck] = useState<{ serviceable: boolean; courierName: string; estimatedDays: string; message?: string } | null>(null);
+  const [deliveryCheck, setDeliveryCheck] = useState<{ serviceable: boolean; courierName: string; estimatedDays: string; codAvailable?: boolean; message?: string } | null>(null);
   const [checkingDelivery, setCheckingDelivery] = useState<boolean>(false);
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
+  const [isCodOrder, setIsCodOrder] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -84,6 +86,8 @@ export default function CheckoutModal({
       setOrderReference('');
       setReservationExpiresAt('');
       setDeliveryCheck(null);
+      setPaymentMethod('online');
+      setIsCodOrder(false);
     }, 0);
 
     const loadSavedAddress = async (): Promise<void> => {
@@ -136,7 +140,7 @@ export default function CheckoutModal({
           setDeliveryCheck(null);
           return;
         }
-        const data = await readJson<{ serviceable: boolean; courierName: string; estimatedDays: string; message?: string }>(res);
+        const data = await readJson<{ serviceable: boolean; courierName: string; estimatedDays: string; codAvailable?: boolean; message?: string }>(res);
         if (!cancelled) setDeliveryCheck(data);
       } catch {
         if (!cancelled) setDeliveryCheck(null);
@@ -202,24 +206,20 @@ export default function CheckoutModal({
     return true;
   };
 
-  const handlePay = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    setError('');
-
+  const validateAndGetAddress = (): CheckoutShippingAddress | null => {
     if (phone.replace(/\D/g, '').length < 10) {
       setError('Please enter a valid 10-digit phone number');
-      return;
+      return null;
     }
     if (pincode.replace(/\D/g, '').length < 6) {
       setError('Please enter a valid 6-digit PIN code');
-      return;
+      return null;
     }
     if (deliveryCheck && !deliveryCheck.serviceable) {
       setError('Shiprocket does not currently mark this PIN code as serviceable');
-      return;
+      return null;
     }
-
-    const shippingAddress = {
+    return {
       name: name.trim(),
       phone: phone.trim(),
       email: email.trim(),
@@ -228,8 +228,71 @@ export default function CheckoutModal({
       state: stateName.trim(),
       pincode: pincode.trim(),
     };
+  };
+
+  const handleCOD = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    setError('');
+    const shippingAddress = validateAndGetAddress();
+    if (!shippingAddress) return;
 
     setStep('processing');
+    setStage('Placing your Cash on Delivery order...');
+    setProgress(30);
+    setIsCodOrder(true);
+
+    const token = getCookie('auth_token');
+    if (!token) {
+      setError('Authentication required. Please log in.');
+      setStep('address');
+      return;
+    }
+
+    try {
+      if (saveAddress) {
+        await fetch('/api/user/address', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(shippingAddress),
+        });
+      }
+
+      setStage('Confirming stock & creating shipment...');
+      setProgress(60);
+
+      const res = await fetch('/api/orders/cod', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ items, total, shippingAddress }),
+      });
+
+      const data = await readJson<{ error?: string; transactionId?: string }>(res);
+      if (!res.ok) {
+        setError(getResponseError(data, 'COD order failed'));
+        setStep('address');
+        return;
+      }
+
+      setOrderReference(data.transactionId || '');
+      setProgress(100);
+      setStep('success');
+      onToast?.('success', 'COD order placed successfully!');
+      onPaymentSuccess();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'COD order failed');
+      setStep('address');
+    }
+  };
+
+  const handlePay = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    setError('');
+    const shippingAddress = validateAndGetAddress();
+    if (!shippingAddress) return;
+
+    setStep('processing');
+    setIsCodOrder(false);
     setStage('Securing product reservation...');
     setProgress(20);
 
@@ -348,7 +411,7 @@ export default function CheckoutModal({
                 Amount Due: <span className="text-white font-sans font-bold">₹{total}</span>
               </p>
               <p className="text-neutral-600 text-[9px] mt-2 font-mono uppercase tracking-widest">
-                Cashfree secure checkout · Shiprocket delivery
+                Secure checkout · Shiprocket delivery
               </p>
             </div>
 
@@ -454,12 +517,60 @@ export default function CheckoutModal({
                 <span>Save as default delivery address</span>
               </label>
 
-              <button
-                type="submit"
-                className="motion-press w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer mt-6"
-              >
-                PROCEED TO PAY ₹{total}
-              </button>
+              <div className="mt-6 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('online')}
+                    className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${
+                      paymentMethod === 'online'
+                        ? 'border-purple-500/40 bg-purple-500/10 text-purple-400'
+                        : 'border-white/5 bg-[#050505] text-neutral-500 hover:border-white/10 hover:text-neutral-300'
+                    }`}
+                  >
+                    <CreditCard size={20} />
+                    <span>Pay Online</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('cod')}
+                    disabled={deliveryCheck ? !deliveryCheck.codAvailable : false}
+                    className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+                      paymentMethod === 'cod'
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                        : 'border-white/5 bg-[#050505] text-neutral-500 hover:border-white/10 hover:text-neutral-300'
+                    }`}
+                  >
+                    <Banknote size={20} />
+                    <span>Cash on Delivery</span>
+                  </button>
+                </div>
+
+                {deliveryCheck && !deliveryCheck.codAvailable && paymentMethod !== 'cod' && (
+                  <p className="text-neutral-600 text-[9px] font-mono uppercase tracking-widest text-center">
+                    COD is not available for this pincode
+                  </p>
+                )}
+
+                {paymentMethod === 'online' ? (
+                  <button
+                    type="submit"
+                    className="motion-press w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <CreditCard size={14} />
+                    <span>PAY ₹{total} ONLINE</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCOD}
+                    className="motion-press w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Banknote size={14} />
+                    <span>PLACE COD ORDER · ₹{total}</span>
+                  </button>
+                )}
+              </div>
             </form>
           </>
         )}
@@ -503,16 +614,16 @@ export default function CheckoutModal({
               Order Placed
             </h2>
             <p className="text-neutral-400 text-xs font-mono uppercase tracking-widest leading-relaxed mb-8">
-              Your payment has been successfully authorized.
+              {isCodOrder ? 'Pay the delivery person when your order arrives.' : 'Your payment has been successfully authorized.'}
             </p>
 
             <div className="bg-[#050505] p-6 rounded-3xl border border-white/5 text-left space-y-3 font-mono text-[10px] uppercase tracking-widest text-neutral-400 mb-8 leading-relaxed">
               <div className="flex justify-between">
-                <span>Payment Status</span>
-                <span className="text-emerald-400 font-bold">SUCCESSFUL</span>
+                <span>Payment</span>
+                <span className={`font-bold ${isCodOrder ? 'text-amber-400' : 'text-emerald-400'}`}>{isCodOrder ? 'CASH ON DELIVERY' : 'PAID ONLINE'}</span>
               </div>
               <div className="flex justify-between">
-                <span>Amount Paid</span>
+                <span>{isCodOrder ? 'Amount Due' : 'Amount Paid'}</span>
                 <span className="text-white font-bold font-sans text-xs">₹{total}</span>
               </div>
               <div className="flex justify-between">
