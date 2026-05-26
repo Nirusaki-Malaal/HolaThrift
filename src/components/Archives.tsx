@@ -392,9 +392,7 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
                     <Heart size={14} className={isSaved ? 'fill-current' : ''} />
                   </button>
                   {isOutOfStock && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <span className="rotate-[-12deg] rounded-lg border border-red-400/40 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-red-400 md:border-2 md:px-4 md:py-1 md:text-lg">SOLD OUT</span>
-                    </div>
+                    <div className="absolute inset-0 bg-black/45 backdrop-blur-[0.5px]" />
                   )}
                 </div>
 
