@@ -179,25 +179,17 @@ html.theme-light [class*="shadow-[-10px_0_50px"] {
   box-shadow: -10px 0 50px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* ---------- "ADD" button — ensure contrast in light mode ---------- */
-html.theme-light button[class*="bg-white"][class*="text-black"] {
+/* ---------- CTA primary buttons (ADD, ADD TO BAG, Secure Checkout) ---------- */
+html.theme-light .cta-primary {
   background-color: #1a1a1a !important;
   color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
 }
 
-html.theme-light button[class*="bg-white"][class*="text-black"]:hover {
+html.theme-light .cta-primary:hover {
   background-color: #7c3aed !important;
   color: #ffffff !important;
-}
-
-/* ---------- "Secure Checkout" button ---------- */
-html.theme-light button[class*="bg-white"][class*="tracking-widest"][class*="text-black"] {
-  background-color: #1a1a1a !important;
-  color: #ffffff !important;
-}
-
-html.theme-light button[class*="bg-white"][class*="tracking-widest"][class*="text-black"]:hover {
-  background-color: #333333 !important;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.25) !important;
 }
 
 /* ---------- "MY BAG" header button ---------- */

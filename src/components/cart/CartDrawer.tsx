@@ -75,7 +75,7 @@ export default function CartDrawer({ cart, total, onClose, onRemove, onCheckout 
               <button
                 type="button"
                 onClick={onCheckout}
-                className="motion-press w-full rounded-xl bg-white py-4 text-xs font-black uppercase tracking-widest text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all hover:bg-neutral-200 cursor-pointer"
+                className="cta-primary motion-press w-full rounded-xl bg-white py-4 text-xs font-black uppercase tracking-widest text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] transition-all hover:bg-neutral-200 cursor-pointer"
               >
                 Secure Checkout
               </button>

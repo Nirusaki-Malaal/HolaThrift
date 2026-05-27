@@ -418,7 +418,7 @@ export default function Archives({ user, onLoginRequired, onToast }: ArchivesPro
                         className={`motion-press flex h-7 items-center justify-center gap-1 rounded-lg px-2 text-[7px] sm:text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer md:h-9 md:px-4 md:text-[9px] md:tracking-widest ${
                           isInCart
                             ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400'
-                            : 'bg-white text-black hover:bg-purple-500 hover:text-white shadow-[0_0_12px_rgba(255,255,255,0.1)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                            : 'cta-primary bg-white text-black hover:bg-purple-500 hover:text-white shadow-[0_0_12px_rgba(255,255,255,0.1)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)]'
                         }`}
                       >
                         <span>{isInCart ? 'BAG' : 'ADD'}</span>

@@ -92,7 +92,7 @@ export default function ProductDetail({ product, onClose, onAddToCart, isInCart 
           ) : (
             <button
               onClick={() => { onAddToCart(product); onClose(); }}
-              className="motion-press w-full py-3.5 sm:py-4 bg-white text-black hover:bg-purple-500 hover:text-white font-black rounded-xl uppercase text-xs tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2"
+              className="cta-primary motion-press w-full py-3.5 sm:py-4 bg-white text-black hover:bg-purple-500 hover:text-white font-black rounded-xl uppercase text-xs tracking-widest transition-all cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2"
             >
               <span>ADD TO BAG</span>
               <ArrowRight size={14} />
