@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 import { User } from '../models/User';
 import { sendWelcomeEmail, sendOtpEmail, sendLoginOtpEmail } from '../services/mail';
@@ -13,17 +12,13 @@ const createOtp = (): string => randomInt(100000, 1000000).toString();
 
 router.post('/signup', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, phone, password } = req.body;
-    if (!email || !phone || !password) {
+    const { email, phone } = req.body;
+    if (!email || !phone) {
       res.status(400).json({ error: 'All fields are required' });
       return;
     }
     const normalizedEmail = String(email).trim().toLowerCase();
     const normalizedPhone = String(phone).replace(/\D/g, '').slice(-10);
-    if (password.length < 8) {
-      res.status(400).json({ error: 'Password must be at least 8 characters' });
-      return;
-    }
     if (normalizedPhone.length !== 10) {
       res.status(400).json({ error: 'Valid 10-digit phone number is required' });
       return;
@@ -41,10 +36,9 @@ router.post('/signup', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
     const otp = createOtp();
     
-    await cacheSession(`signup_otp:${normalizedEmail}`, { otp, phone: normalizedPhone, password: hashedPassword }, 600);
+    await cacheSession(`signup_otp:${normalizedEmail}`, { otp, phone: normalizedPhone }, 600);
     await sendOtpEmail(normalizedEmail, otp);
 
     res.status(200).json({ message: 'Verification code sent' });
@@ -63,7 +57,7 @@ router.post('/verify-signup', async (req: Request, res: Response): Promise<void>
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
-    const cached = await getCachedSession<{ otp: string; phone: string; password: string }>(`signup_otp:${normalizedEmail}`);
+    const cached = await getCachedSession<{ otp: string; phone: string }>(`signup_otp:${normalizedEmail}`);
     if (!cached) {
       res.status(400).json({ error: 'Verification code expired or invalid' });
       return;
@@ -77,7 +71,6 @@ router.post('/verify-signup', async (req: Request, res: Response): Promise<void>
     const user = new User({
       email: normalizedEmail,
       phone: cached.phone,
-      password: cached.password,
     });
     await user.save();
 
@@ -98,22 +91,16 @@ router.post('/verify-signup', async (req: Request, res: Response): Promise<void>
 
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      res.status(400).json({ error: 'Email and password are required' });
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ error: 'Email is required' });
       return;
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      res.status(400).json({ error: 'Invalid credentials' });
-      return;
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      res.status(400).json({ error: 'Invalid credentials' });
+      res.status(400).json({ error: 'This email is not registered. Please sign up first!' });
       return;
     }
 

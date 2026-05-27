@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Package, Pencil, X, Check, Eye, EyeOff, Mail, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Shield, Package, Pencil, X, Check, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import { getCookie } from '@/utils/cookies';
 import { getResponseError, readJson } from '@/utils/http';
 import SavedAddressForm from './profile/SavedAddressForm';
@@ -42,13 +42,6 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
   const [emailInput, setEmailInput] = useState<string>('');
   const [emailOtp, setEmailOtp] = useState<string>('');
   const [emailStep, setEmailStep] = useState<'input' | 'verify'>('input');
-
-  const [currentPass, setCurrentPass] = useState<string>('');
-  const [newPass, setNewPass] = useState<string>('');
-  const [confirmPass, setConfirmPass] = useState<string>('');
-  const [showCurrentPass, setShowCurrentPass] = useState<boolean>(false);
-  const [showNewPass, setShowNewPass] = useState<boolean>(false);
-  const [showConfirmPass, setShowConfirmPass] = useState<boolean>(false);
 
   const [saving, setSaving] = useState<boolean>(false);
 
@@ -132,12 +125,6 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     setEmailInput('');
     setEmailOtp('');
     setEmailStep('input');
-    setCurrentPass('');
-    setNewPass('');
-    setConfirmPass('');
-    setShowCurrentPass(false);
-    setShowNewPass(false);
-    setShowConfirmPass(false);
   };
 
   const saveName = async () => {
@@ -184,18 +171,7 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
     } catch { onToast?.('error', 'Verification failed'); } finally { setSaving(false); }
   };
 
-  const savePassword = async () => {
-    if (!currentPass || !newPass) { onToast?.('error', 'Fill all password fields'); return; }
-    if (newPass.length < 8) { onToast?.('error', 'Minimum 8 characters'); return; }
-    if (newPass !== confirmPass) { onToast?.('error', 'Passwords don\'t match'); return; }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/user/password', { method: 'PUT', headers, body: JSON.stringify({ currentPassword: currentPass, newPassword: newPass }) });
-      const data = await readJson<{ error?: string }>(res);
-      if (res.ok) { onToast?.('success', 'Password updated'); cancelEdit(); }
-      else onToast?.('error', getResponseError(data, 'Failed to update'));
-    } catch { onToast?.('error', 'Failed to update'); } finally { setSaving(false); }
-  };
+
 
   const saveAddress = async () => {
     if (!addressInput.name || !addressInput.email || !addressInput.phone || !addressInput.address || !addressInput.city || !addressInput.state || !addressInput.pincode) {
@@ -364,51 +340,13 @@ export default function Profile({ user, onLogout, onUserUpdate, onToast }: Profi
             <div className="space-y-4 mb-6">
               <div className="flex items-center gap-2 text-emerald-400 font-mono text-[9px] uppercase tracking-widest">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
-                <span>2-Step SMTP Verified</span>
+                <span>2-Step OTP Verified</span>
               </div>
               <div className="flex items-center gap-2 text-neutral-500 font-mono text-[9px] uppercase tracking-widest">
                 <div className="w-1.5 h-1.5 rounded-full bg-neutral-600"></div>
                 <span>Session Active</span>
               </div>
             </div>
-
-            {editingField === 'password' ? (
-              <div className="space-y-3 border-t border-white/5 pt-4">
-                <div className="relative">
-                  <input type={showCurrentPass ? 'text' : 'password'} value={currentPass} onChange={e => setCurrentPass(e.target.value)} className="w-full bg-[#050505] px-4 py-3 rounded-xl border border-white/10 text-white text-xs outline-none focus:border-purple-500 pr-10" placeholder="Current password" />
-                  <button type="button" onClick={() => setShowCurrentPass(!showCurrentPass)} className="absolute right-3 top-3 text-neutral-500 hover:text-white cursor-pointer">
-                    {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                <div className="relative">
-                  <input type={showNewPass ? 'text' : 'password'} value={newPass} onChange={e => setNewPass(e.target.value)} className="w-full bg-[#050505] px-4 py-3 rounded-xl border border-white/10 text-white text-xs outline-none focus:border-purple-500 pr-10" placeholder="New password (min 8 chars)" />
-                  <button type="button" onClick={() => setShowNewPass(!showNewPass)} className="absolute right-3 top-3 text-neutral-500 hover:text-white cursor-pointer">
-                    {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                <div className="relative">
-                  <input type={showConfirmPass ? 'text' : 'password'} value={confirmPass} onChange={e => setConfirmPass(e.target.value)} className="w-full bg-[#050505] px-4 py-3 rounded-xl border border-white/10 text-white text-xs outline-none focus:border-purple-500 pr-10" placeholder="Confirm new password" />
-                  <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} className="absolute right-3 top-3 text-neutral-500 hover:text-white cursor-pointer">
-                    {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button onClick={savePassword} disabled={saving} className="px-5 py-2.5 bg-white text-black font-black rounded-xl text-[10px] uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all cursor-pointer">
-                    {saving ? 'Saving...' : 'Update Password'}
-                  </button>
-                  <button onClick={cancelEdit} className="px-5 py-2.5 bg-white/5 border border-white/10 text-neutral-400 font-bold rounded-xl text-[10px] uppercase tracking-widest hover:text-white transition-all cursor-pointer">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => { cancelEdit(); setEditingField('password'); }}
-                className="text-purple-400 hover:text-purple-300 font-bold text-[10px] uppercase tracking-widest cursor-pointer transition-colors border-t border-white/5 pt-4 block w-full text-left"
-              >
-                Change Password →
-              </button>
-            )}
 
             <div className="mt-6 pt-4 border-t border-white/5">
               <button onClick={onLogout} className="text-neutral-600 hover:text-red-400 font-bold text-[10px] transition-colors cursor-pointer uppercase tracking-widest">

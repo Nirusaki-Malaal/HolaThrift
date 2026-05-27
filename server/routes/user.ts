@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 import { User } from '../models/User';
 import Order from '../models/Order';
@@ -348,43 +347,6 @@ router.put('/phone', accountMutationRateLimit, async (req: Request, res: Respons
     }
     const nextSession = await updateSessionCache(req, user);
     res.json({ message: 'Phone updated', phone: nextSession.phone });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-router.put('/password', accountMutationRateLimit, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const session = await getSession(req, res);
-    if (!session) return;
-
-    const currentPassword = String(req.body.currentPassword || '');
-    const newPassword = String(req.body.newPassword || '');
-    if (!currentPassword || !newPassword) {
-      res.status(400).json({ error: 'Both passwords are required' });
-      return;
-    }
-    if (newPassword.length < 8) {
-      res.status(400).json({ error: 'New password must be at least 8 characters' });
-      return;
-    }
-
-    const user = await User.findById(session.id);
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      res.status(400).json({ error: 'Current password is incorrect' });
-      return;
-    }
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-    res.json({ message: 'Password updated successfully' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });

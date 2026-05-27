@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Smartphone, Mail, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { X, Smartphone, Mail, ShieldCheck } from 'lucide-react';
 import { AUTH_COOKIE_DAYS } from '@/constants/auth';
 import { setCookie } from '@/utils/cookies';
 import { getResponseError, readJson } from '@/utils/http';
@@ -16,13 +16,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [step, setStep] = useState<'form' | 'verify'>('form');
   const [email, setEmail] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [otp, setOtp] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -30,12 +26,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     setStep('form');
     setEmail('');
     setPhone('');
-    setPassword('');
-    setConfirmPassword('');
     setOtp('');
     setError('');
-    setShowPassword(false);
-    setShowConfirmPassword(false);
   };
 
   const handleFormSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -45,17 +37,11 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
     if (step === 'form') {
       if (mode === 'signup') {
-        if (password !== confirmPassword) {
-          setError('Those passwords do not match. Please make sure they are identical!');
-          setLoading(false);
-          return;
-        }
-
         try {
           const response = await fetch('/api/auth/signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, phone, password }),
+            body: JSON.stringify({ email, phone }),
           });
 
           const data = await readJson<{ error?: string }>(response);
@@ -76,12 +62,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email }),
           });
 
           const data = await readJson<{ error?: string; requiresOtp?: boolean; token: string; user: UserSession }>(response);
           if (!response.ok) {
-            setError(getResponseError(data, 'Those details do not match our records. Please double-check and try again!'));
+            setError(getResponseError(data, 'This email is not registered. Please sign up first!'));
             setLoading(false);
             return;
           }
@@ -246,52 +232,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
                 </div>
               )}
 
-              <div className="relative">
-                <Lock className="absolute left-4 top-4 text-neutral-500" size={16} />
-                <input
-                  required
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder={mode === 'login' ? 'Enter your password' : 'Choose a secure password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#050505] pl-12 pr-12 py-4 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-4 text-neutral-500 hover:text-white transition-colors cursor-pointer"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-
-              {mode === 'signup' && (
-                <div className="relative">
-                  <Lock className="absolute left-4 top-4 text-neutral-500" size={16} />
-                  <input
-                    required
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    placeholder="Confirm your password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-[#050505] pl-12 pr-12 py-4 rounded-xl border border-white/5 text-white text-xs outline-none focus:border-purple-500 transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-4 text-neutral-500 hover:text-white transition-colors cursor-pointer"
-                  >
-                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              )}
-
               <button
                 type="submit"
                 disabled={loading}
                 className="motion-press w-full py-4 bg-white hover:bg-neutral-200 text-black font-black rounded-xl uppercase text-xs tracking-widest transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(255,255,255,0.2)] cursor-pointer"
               >
-                {loading ? 'Processing...' : mode === 'login' ? 'Continue to Sign In' : 'Get my verification code'}
+                {loading ? 'Processing...' : mode === 'login' ? 'Get Login Code' : 'Get my verification code'}
               </button>
 
               <div className="text-center mt-6 pt-6 border-t border-white/5">
