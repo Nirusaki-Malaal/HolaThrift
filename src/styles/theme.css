@@ -1,48 +1,79 @@
+/* ═══════════════════════════════════════════════════════════
+   HolaThrift — Light-mode overrides
+   Applied when <html class="theme-light">
+   ═══════════════════════════════════════════════════════════ */
+
+/* ---------- Root surface ---------- */
 html.theme-light {
-  background: #f4f7fb;
+  background: #f5f5f7;
   color-scheme: light;
 }
 
 html.theme-light body {
-  background: #f4f7fb;
-  color: #151821;
+  background: #f5f5f7;
+  color: #1a1a1a;
 }
 
+/* ---------- Grid background ---------- */
 html.theme-light [class*="bg-[linear-gradient"] {
-  background-image: linear-gradient(to right, rgba(26, 32, 44, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(26, 32, 44, 0.08) 1px, transparent 1px) !important;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px) !important;
 }
 
+/* ---------- Dark surfaces → light ---------- */
 html.theme-light [class*="bg-[#050505]"],
 html.theme-light [class*="bg-[#0a0a0a]"],
-html.theme-light [class*="bg-[#0b0b0d]"],
+html.theme-light [class*="bg-[#0b0b0b]"],
 html.theme-light [class*="bg-[#0d0d0d]"],
-html.theme-light [class*="bg-[#111"] {
-  background-color: rgba(255, 255, 255, 0.88) !important;
+html.theme-light [class*="bg-[#111]"] {
+  background-color: #ffffff !important;
 }
 
 html.theme-light [class*="bg-white/5"],
 html.theme-light [class*="bg-white/10"] {
-  background-color: rgba(21, 24, 33, 0.055) !important;
+  background-color: rgba(0, 0, 0, 0.04) !important;
 }
 
 html.theme-light [class*="bg-neutral-800"],
 html.theme-light [class*="bg-neutral-900"] {
-  background-color: rgba(229, 233, 240, 0.8) !important;
+  background-color: #f0f0f2 !important;
 }
 
+html.theme-light [class*="bg-black/60"] {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+html.theme-light [class*="bg-black/75"] {
+  background-color: rgba(0, 0, 0, 0.35) !important;
+}
+
+html.theme-light [class*="bg-black/85"] {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+html.theme-light [class*="bg-black/45"] {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+}
+
+/* ---------- Borders ---------- */
 html.theme-light [class*="border-white/"] {
-  border-color: rgba(21, 24, 33, 0.12) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
 }
 
 html.theme-light [class*="border-neutral-"] {
-  border-color: rgba(21, 24, 33, 0.16) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
 }
 
+html.theme-light [class*="border-dashed"][class*="border-white/"] {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ---------- Text colors ---------- */
 html.theme-light .text-white,
 html.theme-light .glitch-text {
-  color: #151821 !important;
+  color: #1a1a1a !important;
 }
 
+/* Preserve white text inside colored backgrounds (badges, buttons) */
 html.theme-light [class*="bg-purple"][class*="text-white"],
 html.theme-light [class*="bg-pink"][class*="text-white"],
 html.theme-light [class*="bg-red"][class*="text-white"],
@@ -51,52 +82,182 @@ html.theme-light [class*="bg-green"][class*="text-white"] {
   color: #ffffff !important;
 }
 
-html.theme-light .text-neutral-300,
-html.theme-light .text-neutral-400,
-html.theme-light .text-neutral-500,
+html.theme-light .text-neutral-300 {
+  color: #444444 !important;
+}
+
+html.theme-light .text-neutral-400 {
+  color: #555555 !important;
+}
+
+html.theme-light .text-neutral-500 {
+  color: #777777 !important;
+}
+
 html.theme-light .text-neutral-600 {
-  color: #4b5563 !important;
+  color: #999999 !important;
 }
 
 html.theme-light .text-neutral-700 {
-  color: #9ca3af !important;
+  color: #aaaaaa !important;
 }
 
+/* ---------- Forms ---------- */
 html.theme-light input,
 html.theme-light textarea,
 html.theme-light select {
-  background-color: rgba(255, 255, 255, 0.92) !important;
-  color: #151821 !important;
+  background-color: #f5f5f7 !important;
+  color: #1a1a1a !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
 }
 
 html.theme-light input::placeholder,
 html.theme-light textarea::placeholder {
-  color: #6b7280 !important;
+  color: #999999 !important;
 }
 
+html.theme-light select option {
+  background-color: #ffffff !important;
+  color: #1a1a1a !important;
+}
+
+/* ---------- Shadows → subtle warm tones ---------- */
+html.theme-light .shadow-2xl,
+html.theme-light [class*="shadow-["] {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ---------- Card hover glow → softer purple on light ---------- */
+html.theme-light [class*="hover:shadow-[0_0_30px_rgba(168,85,247"]:hover {
+  box-shadow: 0 8px 32px rgba(168, 85, 247, 0.1) !important;
+}
+
+html.theme-light [class*="hover:shadow-[0_0_15px_rgba(168,85,247"]:hover {
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.12) !important;
+}
+
+html.theme-light [class*="shadow-[0_0_12px_rgba(255,255,255"] {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+html.theme-light [class*="shadow-[0_0_20px_rgba(255,255,255"] {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ---------- Category badge on image ---------- */
+html.theme-light [class*="bg-black/60"][class*="backdrop-blur"] {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  color: #333333 !important;
+}
+
+/* ---------- Hero overlay ---------- */
 html.theme-light .hero-overlay {
-  background: rgba(244, 247, 251, 0.58) !important;
+  background: rgba(245, 245, 247, 0.6) !important;
 }
 
+/* ---------- Product detail modal ---------- */
 html.theme-light .product-detail-backdrop {
-  background: rgba(244, 247, 251, 0.78) !important;
-  backdrop-filter: blur(18px) saturate(1.08);
+  background: rgba(245, 245, 247, 0.8) !important;
+  backdrop-filter: blur(18px) saturate(1.1);
 }
 
 html.theme-light .product-detail-shell {
-  background: rgba(255, 255, 255, 0.96) !important;
-  border-color: rgba(21, 24, 33, 0.12) !important;
-  box-shadow: 0 24px 80px rgba(21, 24, 33, 0.18) !important;
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.15) !important;
 }
 
 html.theme-light .product-detail-close,
 html.theme-light .product-detail-chip {
-  background: rgba(255, 255, 255, 0.82) !important;
-  border-color: rgba(21, 24, 33, 0.14) !important;
-  color: #151821 !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1a1a1a !important;
 }
 
-html.theme-light .shadow-2xl,
-html.theme-light [class*="shadow-["] {
-  box-shadow: 0 18px 55px rgba(21, 24, 33, 0.12) !important;
+/* ---------- Cart drawer ---------- */
+html.theme-light [class*="shadow-[-10px_0_50px"] {
+  box-shadow: -10px 0 50px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ---------- "ADD" button — ensure contrast in light mode ---------- */
+html.theme-light button[class*="bg-white"][class*="text-black"] {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+html.theme-light button[class*="bg-white"][class*="text-black"]:hover {
+  background-color: #7c3aed !important;
+  color: #ffffff !important;
+}
+
+/* ---------- "Secure Checkout" button ---------- */
+html.theme-light button[class*="bg-white"][class*="tracking-widest"][class*="text-black"] {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+html.theme-light button[class*="bg-white"][class*="tracking-widest"][class*="text-black"]:hover {
+  background-color: #333333 !important;
+}
+
+/* ---------- "MY BAG" header button ---------- */
+html.theme-light button[class*="bg-white/5"][class*="text-neutral-300"] {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: #444444 !important;
+}
+
+html.theme-light button[class*="bg-white/5"][class*="text-neutral-300"]:hover {
+  background-color: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+/* ---------- SOLD OUT badge ---------- */
+html.theme-light [class*="bg-neutral-800/50"][class*="text-neutral-500"] {
+  background-color: #f0f0f2 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #999999 !important;
+}
+
+/* ---------- Wishlist heart button ---------- */
+html.theme-light button[class*="bg-black/60"][class*="text-neutral-300"] {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #555555 !important;
+}
+
+/* ---------- Out of stock dimming → lighter overlay ---------- */
+html.theme-light [class*="bg-black/45"][class*="backdrop-blur"] {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ---------- Scrollbar ---------- */
+html.theme-light .custom-scrollbar::-webkit-scrollbar-track {
+  background: #f0f0f2;
+}
+
+html.theme-light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d0d0d5;
+}
+
+html.theme-light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b5;
+}
+
+/* ---------- Purple accent tones — keep vibrant ---------- */
+html.theme-light .text-purple-400 {
+  color: #7c3aed !important;
+}
+
+html.theme-light .text-purple-300 {
+  color: #8b5cf6 !important;
+}
+
+/* ---------- Loading / error states ---------- */
+html.theme-light [class*="bg-red-500/5"] {
+  background-color: rgba(239, 68, 68, 0.06) !important;
+}
+
+html.theme-light [class*="border-red-500/20"] {
+  border-color: rgba(239, 68, 68, 0.15) !important;
 }
