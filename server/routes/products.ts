@@ -1,8 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { v2 as cloudinary } from 'cloudinary';
-import { randomBytes } from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import Product from '../models/Product';
 import { cacheSession, getCachedSession, deleteCachedSession, redisClient } from '../services/redis';
 import { normalizeInventory } from '../services/inventory';
@@ -237,20 +234,15 @@ router.post('/upload', uploadRateLimit, async (req: Request, res: Response): Pro
       res.status(413).json({ error: 'Image file is too large' });
       return;
     }
-    try {
-      const uploadResponse = await cloudinary.uploader.upload(image, {
-        folder: 'holathrift_products',
-      });
-      res.status(200).json({ url: uploadResponse.secure_url });
-    } catch {
-      const filename = `img_${Date.now()}_${randomBytes(6).toString('hex')}.${parsedImage.ext}`;
-      const dir = path.join(process.cwd(), 'public', 'uploads');
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(path.join(dir, filename), parsedImage.buffer);
-      res.status(200).json({ url: `/uploads/${filename}` });
+    const uploadResponse = await cloudinary.uploader.upload(image, {
+      folder: 'holathrift_products',
+    });
+    if (!uploadResponse?.secure_url) {
+      console.error('Cloudinary upload returned no URL:', uploadResponse);
+      res.status(502).json({ error: 'Image upload failed — no URL returned from Cloudinary' });
+      return;
     }
+    res.status(200).json({ url: uploadResponse.secure_url });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
