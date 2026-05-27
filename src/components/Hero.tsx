@@ -14,7 +14,7 @@ export default function Hero({ onExploreArchives }: HeroProps): React.JSX.Elemen
 
       <div className="relative z-10 flex flex-col items-center">
         <div className="relative perspective-1000 mb-8 select-none motion-hero-copy">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#0b0b0d]/80 px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-md animate-3d-float">
+          <div className="hero-live-badge inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#0b0b0d]/80 px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-md animate-3d-float">
             <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,1)] animate-pulse-fast"></span>
             Fresh Drops Live
           </div>
